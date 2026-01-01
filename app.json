@@ -1,0 +1,12 @@
+{
+  "expo": {
+    "extra": {
+      "eas": {
+        "projectId": "f53d05bd-0be5-48c8-adef-6a9c3630df76"
+      }
+    },
+    "android": {
+      "package": "com.rhm.app"
+    }
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "dependencies": {
+    "@react-native-firebase/app": "23.5.0",
+    "@react-native-firebase/messaging": "23.5.0",
+    "expo": "^54.0.13",
+    "react-native-youtube-iframe": "^2.4.1"
+  },
+  "devDependencies": {
+    "@types/react": "~19.1.10",
+    "typescript": "~5.9.2"
+  }
+}
