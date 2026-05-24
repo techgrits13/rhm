@@ -1,0 +1,65 @@
+==============================================
+🚀 QUICK DEPLOY COMMANDS - Copy & Paste These!
+==============================================
+
+Step 1: Go to your backend folder
+----------------------------------
+cd c:\Users\esir\RHM\rhm-backend
+
+
+Step 2: Check Git status
+----------------------------------
+git status
+
+
+Step 3: Add all changes
+----------------------------------
+git add .
+
+
+Step 4: Commit with message
+----------------------------------
+git commit -m "Fix app-ads.txt serving on Render for AdMob authorization"
+
+
+Step 5: Push to GitHub/Remote
+----------------------------------
+git push origin main
+
+(If you use 'master' branch, change 'main' to 'master')
+
+
+Step 6: Wait for Render to auto-deploy
+----------------------------------
+- Go to: https://dashboard.render.com
+- Find: rhm-backend service
+- Watch the deployment progress
+- Wait ~2-3 minutes
+
+
+Step 7: Test the fix
+----------------------------------
+Visit this URL in your browser:
+https://rhm-backend-1.onrender.com/app-ads.txt
+
+You should see:
+google.com, pub-3848557016813463, DIRECT, f08c47fec0942fa0
+
+
+Step 8: Verify in AdMob (after 24-48 hours)
+----------------------------------
+- Go to: https://apps.admob.com
+- The warning should disappear after Google re-crawls
+
+
+==============================================
+✅ DONE! Your app-ads.txt is now fixed!
+==============================================
+
+If app-ads.txt still shows 404:
+1. Check Render logs for errors
+2. Make sure server is running (test /health endpoint)
+3. Try manual redeploy on Render dashboard
+4. Read FIX_APP_ADS_TXT.md for detailed troubleshooting
+
+==============================================

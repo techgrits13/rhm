@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "171194114923",
+    "project_id": "rhm-app-a60cd",
+    "storage_bucket": "rhm-app-a60cd.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:171194114923:android:ae2db95e8b114bc3fc222e",
+        "android_client_info": {
+          "package_name": "com.rhm.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBvhWEvukNb6_a1CutvHXW9DvPQsH-NkUg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

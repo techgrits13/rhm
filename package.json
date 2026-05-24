@@ -1,4 +1,11 @@
 {
+  "private": true,
+  "scripts": {
+    "start": "npm --prefix RHM start",
+    "android": "npm --prefix RHM run android",
+    "ios": "npm --prefix RHM run ios",
+    "web": "npm --prefix RHM run web"
+  },
   "dependencies": {
     "@react-native-firebase/app": "23.5.0",
     "@react-native-firebase/messaging": "23.5.0",

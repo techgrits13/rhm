@@ -1,0 +1,52 @@
+{
+  "channels": [
+    {
+      "name": "Kayole Main Altar",
+      "handle": "@kayolemainworshipchannel",
+      "channelId": "UCkayolemainworshipchannel",
+      "description": "Main church worship channel",
+      "priority": 1
+    },
+    {
+      "name": "Worship TV",
+      "handle": "@WorshipTV7",
+      "channelId": "UCWorshipTV7",
+      "description": "Worship and praise content",
+      "priority": 2
+    },
+    {
+      "name": "Trending Gospel",
+      "handle": "@TrendingGospel",
+      "channelId": "UCTrendingGospel",
+      "description": "Gospel music and content",
+      "priority": 3
+    },
+    {
+      "name": "Repent & Prepare The Way",
+      "handle": "@repentpreparethewaytheway",
+      "channelId": "UCrepentpreparethewaytheway",
+      "description": "Evangelism and preaching",
+      "priority": 4
+    },
+    {
+      "name": "SAM FILMS MEDIA",
+      "handle": "@SamFilmsMedia",
+      "channelId": "UCSamFilmsMedia",
+      "description": "Church media production",
+      "priority": 5
+    }
+  ],
+  "polling": {
+    "intervalMinutes": 15,
+    "maxVideosPerChannel": 10,
+    "activeHours": {
+      "start": 6,
+      "end": 23
+    }
+  },
+  "notes": [
+    "Channel IDs are placeholders - will be fetched from YouTube API",
+    "Priority determines order of display in the app",
+    "Active hours: 6am - 11pm to conserve API quota"
+  ]
+}

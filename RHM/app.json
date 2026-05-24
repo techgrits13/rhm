@@ -1,0 +1,88 @@
+{
+  "expo": {
+    "name": "RHM",
+    "slug": "RHM",
+    "scheme": "rhm",
+    "version": "1.1.0",
+    "orientation": "portrait",
+    "icon": "./assets/adaptive-icon.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "owner": "415_415",
+    "splash": {
+      "image": "./assets/adaptive-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSUserTrackingUsageDescription": "This identifier will be used to deliver personalized ads to you.",
+        "UIBackgroundModes": [
+          "audio"
+        ]
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "googleServicesFile": "./google-services.json",
+      "edgeToEdgeEnabled": true,
+      "predictiveBackGestureEnabled": false,
+      "package": "com.rhm.app",
+      "versionCode": 13,
+      "permissions": [
+        "INTERNET",
+        "ACCESS_NETWORK_STATE",
+        "ACCESS_WIFI_STATE",
+        "RECORD_AUDIO",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "MODIFY_AUDIO_SETTINGS",
+        "com.google.android.gms.permission.AD_ID",
+        "FOREGROUND_SERVICE",
+        "WAKE_LOCK"
+      ]
+    },
+    "notification": {
+      "icon": "./assets/adaptive-icon.png",
+      "color": "#6200ee",
+      "androidMode": "default",
+      "androidCollapsedTitle": "RHM"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/adaptive-icon.png",
+          "color": "#6200ee",
+          "defaultChannel": "default",
+          "sounds": []
+        }
+      ],
+      [
+        "react-native-google-mobile-ads",
+        {
+          "androidAppId": "ca-app-pub-3848557016813463~4336808867",
+          "iosAppId": "ca-app-pub-3940256099942544~1458002511"
+        }
+      ],
+      "expo-font",
+      "expo-web-browser"
+    ],
+    "extra": {
+      "disableAds": false,
+      "apiUrl": "https://rhm-backend-2.onrender.com/api",
+      "supabaseUrl": "https://tlcerhzcnhhzqbocmjsd.supabase.co",
+      "supabaseAnonKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRsY2VyaHpjbmhoenFib2NtanNkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc0MDU5NjksImV4cCI6MjA5Mjk4MTk2OX0.2Dsr2EMYUVw8x38mGksg4Q-bw1oemHXx-aaGF1fO0Is",
+      "eas": {
+        "projectId": "099536d0-ecd3-43dd-bb67-61be5f1976c1"
+      }
+    }
+  }
+}

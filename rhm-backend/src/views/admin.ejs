@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RHM Admin</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial;
+      margin: 0;
+      background: #f7f7fb;
+      color: #222;
+    }
+
+    header {
+      background: #4f46e5;
+      color: #fff;
+      padding: 20px;
+    }
+
+    main {
+      padding: 20px;
+      max-width: 1000px;
+      margin: 0 auto;
+    }
+
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 16px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, .08);
+    }
+
+    h2 {
+      margin: 0 0 12px 0;
+      font-size: 18px;
+    }
+
+    label {
+      display: block;
+      font-weight: 600;
+      margin: 10px 0 6px;
+    }
+
+    input[type=text],
+    input[type=url] {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+    }
+
+    input[type=file] {
+      padding: 6px 0;
+    }
+
+    .row {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      background: #4f46e5;
+      color: #fff;
+      border: none;
+      padding: 10px 14px;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+
+    .btn.secondary {
+      background: #0ea5e9;
+    }
+
+    .btn.danger {
+      background: #dc2626;
+    }
+
+    .thumb {
+      width: 160px;
+      height: 100px;
+      object-fit: cover;
+      border-radius: 8px;
+      border: 1px solid #eee;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 12px;
+    }
+
+    .muted {
+      color: #666;
+      font-size: 13px;
+    }
+
+    .msg {
+      padding: 10px 12px;
+      border-radius: 8px;
+      margin-bottom: 12px;
+    }
+
+    .msg.ok {
+      background: #ecfeff;
+      color: #0e7490;
+      border: 1px solid #a5f3fc;
+    }
+
+    .msg.err {
+      background: #fee2e2;
+      color: #991b1b;
+      border: 1px solid #fecaca;
+    }
+
+    form.inline {
+      display: inline-block;
+      margin-left: 8px;
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <h1>RHM Admin</h1>
+    <div class="muted">Manage slideshow, YouTube sync, and app settings</div>
+  </header>
+  <main>
+    <% if (message) { %>
+      <div class="msg ok">
+        <%= message %>
+      </div>
+      <% } %>
+        <% if (error) { %>
+          <div class="msg err">
+            <%= error %>
+          </div>
+          <% } %>
+
+            <div class="card">
+              <h2>1) YouTube Sync</h2>
+              <form action="/admin-ui/sync" method="post">
+                <button class="btn" type="submit">Run Sync Now</button>
+                <span class="muted">Fetches latest videos and caches them</span>
+              </form>
+            </div>
+
+            <div class="card">
+              <h2>2) Radio Slideshow - Add by URL</h2>
+              <form action="/admin-ui/upload" method="post">
+                <label>Title</label>
+                <input type="text" name="title" placeholder="Slide title" />
+                <label>Caption (optional)</label>
+                <input type="text" name="content" placeholder="Short caption" />
+                <label>Image URL</label>
+                <input type="url" name="media_url" placeholder="https://example.com/image.jpg" required />
+                <div style="margin-top:10px"><button class="btn" type="submit">Add Slide</button></div>
+              </form>
+            </div>
+
+            <div class="card">
+              <h2>3) Radio Slideshow - Upload File</h2>
+              <form action="/admin-ui/upload-file" method="post" enctype="multipart/form-data">
+                <label>Title</label>
+                <input type="text" name="title" placeholder="Slide title" />
+                <label>Caption (optional)</label>
+                <input type="text" name="content" placeholder="Short caption" />
+                <label>Choose Image</label>
+                <input type="file" name="image" accept="image/*" required />
+                <div style="margin-top:10px"><button class="btn secondary" type="submit">Upload Slide</button></div>
+              </form>
+            </div>
+
+            <div class="card">
+              <h2>4) Current Slides</h2>
+              <div class="grid">
+                <% if (images && images.length) { images.forEach(function(img){ %>
+                  <div class="card" style="padding:10px">
+                    <img class="thumb" src="<%= img.media_url %>" alt="slide" />
+                    <div class="muted" style="margin-top:6px">
+                      <%= img.title || 'Slide' %>
+                    </div>
+                    <form class="inline" action="/admin-ui/delete" method="post">
+                      <input type="hidden" name="id" value="<%= img.id %>" />
+                      <button class="btn danger" type="submit">Delete</button>
+                    </form>
+                  </div>
+                  <% }) } else { %>
+                    <div class="muted">No slides yet. Add some above.</div>
+                    <% } %>
+              </div>
+            </div>
+
+            <div class="card">
+              <h2>5) Send Push Notification</h2>
+              <form action="/admin-ui/send-notification" method="post">
+                <label>Notification Title</label>
+                <input type="text" name="title" placeholder="New Sermon Available!" required />
+                <label>Notification Body</label>
+                <input type="text" name="body" placeholder="Check out our latest sermon..." required />
+                <div style="margin-top:10px"><button class="btn secondary" type="submit">Send to All Users</button>
+                </div>
+                <div class="muted" style="margin-top:8px">Sends push notification to all registered devices</div>
+              </form>
+            </div>
+
+            <div class="card">
+              <h2>6) Music Management</h2>
+              <div class="row">
+                <!-- Upload Form -->
+                <div style="flex:1; min-width:300px; border-right:1px solid #eee; padding-right:16px;">
+                  <h3>Upload New Track</h3>
+                  <form action="/admin-ui/music/upload" method="post" enctype="multipart/form-data">
+                    <label>Title *</label>
+                    <input type="text" name="title" placeholder="Song Title" required />
+
+                    <label>Artist *</label>
+                    <input type="text" name="artist" placeholder="Artist / Band" required />
+
+                    <label>Album (Optional)</label>
+                    <input type="text" name="album" placeholder="Album Name" />
+
+                    <label>Audio File (MP3) *</label>
+                    <input type="file" name="audio" accept="audio/*" required />
+
+                    <label>Cover Art (Optional)</label>
+                    <input type="file" name="cover" accept="image/*" />
+
+                    <div style="margin-top:16px"><button class="btn" type="submit">Upload Track</button></div>
+                  </form>
+                </div>
+
+                <!-- Music List -->
+                <div style="flex:1; min-width:300px; padding-left:16px;">
+                  <h3>Library</h3>
+                  <div style="max-height:400px; overflow-y:auto;">
+                    <% if (music && music.length) { music.forEach(function(track){ %>
+                      <div style="display:flex; align-items:center; border-bottom:1px solid #eee; padding:8px 0;">
+                        <% if(track.cover_url) { %>
+                          <img src="<%= track.cover_url %>"
+                            style="width:40px; height:40px; border-radius:4px; margin-right:10px; object-fit:cover;" />
+                          <% } else { %>
+                            <div
+                              style="width:40px; height:40px; background:#ddd; border-radius:4px; margin-right:10px; display:flex; align-items:center; justify-content:center;">
+                              🎵</div>
+                            <% } %>
+                              <div style="flex:1;">
+                                <div style="font-weight:600; font-size:14px;">
+                                  <%= track.title %>
+                                </div>
+                                <div class="muted">
+                                  <%= track.artist %>
+                                </div>
+                              </div>
+                              <form action="/admin-ui/music/delete" method="post" style="margin:0;">
+                                <input type="hidden" name="id" value="<%= track.id %>" />
+                                <button class="btn danger" style="padding:4px 8px; font-size:12px;" type="submit"
+                                  onclick="return confirm('Delete this track?')">DEL</button>
+                              </form>
+                      </div>
+                      <% }) } else { %>
+                        <div class="muted">No music uploaded yet.</div>
+                        <% } %>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="card">
+              <h2>7) Breaking News & Polls</h2>
+              <div class="row">
+                <!-- Create Post Form -->
+                <div style="flex:1; min-width:300px; border-right:1px solid #eee; padding-right:16px;">
+                  <h3>Create Post</h3>
+                  <form action="/admin-ui/news/create" method="post" enctype="multipart/form-data">
+                    <label>Post Type</label>
+                    <select name="type" style="width:100%; padding:9px; border-radius:8px; border:1px solid #ddd;"
+                      onchange="
+                        document.getElementById('poll-opts').style.display = this.value === 'poll' ? 'block' : 'none';
+                        document.getElementById('media-inp').style.display = (this.value === 'image' || this.value === 'video') ? 'block' : 'none';
+                        document.getElementById('link-inp').style.display = this.value === 'link' ? 'block' : 'none';
+                    ">
+                      <option value="text">Text Message</option>
+                      <option value="image">Image</option>
+                      <option value="video">Video</option>
+                      <option value="poll">Poll</option>
+                      <option value="link">🔗 Link / URL</option>
+                    </select>
+
+                    <label>Content / Caption</label>
+                    <textarea name="content" placeholder="Write something..."
+                      style="width:100%; height:80px; padding:10px; border:1px solid #ddd; border-radius:8px;"></textarea>
+
+                    <div id="media-inp" style="display:none; margin-top:10px;">
+                      <label>Upload Media (Image/Video)</label>
+                      <input type="file" name="media" accept="image/*,video/*" />
+                      <div class="muted">OR URL</div>
+                      <input type="text" name="media_url_input" placeholder="https://..." />
+                    </div>
+
+                    <div id="poll-opts" style="display:none; margin-top:10px;">
+                      <label>Poll Options (comma separated)</label>
+                      <textarea name="poll_options_text" placeholder="Yes, No, Maybe"
+                        style="width:100%; height:60px; padding:10px; border:1px solid #ddd; border-radius:8px;"></textarea>
+                    </div>
+
+                    <div id="link-inp" style="display:none; margin-top:10px;">
+                      <label>URL *</label>
+                      <input type="url" name="link_url" placeholder="https://example.com" style="width:100%; padding:10px; border:1px solid #ddd; border-radius:8px;" />
+                      <div class="muted">Users will tap to open this link in a browser</div>
+                    </div>
+
+                    <div style="margin-top:16px"><button class="btn secondary" type="submit">Post to Feed</button></div>
+                  </form>
+                </div>
+
+                <!-- Feed List -->
+                <div style="flex:1; min-width:300px; padding-left:16px;">
+                  <h3>Recent Posts</h3>
+                  <div style="max-height:400px; overflow-y:auto;">
+                    <% if (typeof news !=='undefined' && news.length) { news.forEach(function(item){ %>
+                      <div style="border-bottom:1px solid #eee; padding:10px 0;">
+                        <div style="display:flex; justify-content:space-between;">
+                          <span style="font-weight:bold; text-transform:uppercase; font-size:12px; color:#555;">
+                            <%= item.type %>
+                          </span>
+                          <span class="muted">
+                            <%= new Date(item.created_at).toLocaleDateString() %>
+                          </span>
+                        </div>
+                        <div style="margin:4px 0;">
+                          <%= item.content %>
+                        </div>
+                        <% if(item.media_url) { %>
+                          <div class="muted" style="font-size:12px;">Attachment: <a href="<%= item.media_url %>"
+                              target="_blank">View</a></div>
+                          <% } %>
+                          <% if(item.link_url) { %>
+                            <div class="muted" style="font-size:12px;">🔗 <a href="<%= item.link_url %>" target="_blank"><%= item.link_url %></a></div>
+                          <% } %>
+                            <% if(item.poll_options) { %>
+                              <div class="muted" style="font-size:12px;">Poll Options: <%= item.poll_options.length %>
+                              </div>
+                              <% } %>
+                                <form action="/admin-ui/news/delete" method="post" style="margin-top:5px;">
+                                  <input type="hidden" name="id" value="<%= item.id %>" />
+                                  <button class="btn danger" style="padding:4px 10px; font-size:12px;" type="submit"
+                                    onclick="return confirm('Delete this post?')">Delete</button>
+                                </form>
+                      </div>
+                      <% }) } else { %>
+                        <div class="muted">No breaking news posts.</div>
+                        <% } %>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="card">
+              <h2>8) App Settings</h2>
+              <form action="/admin-ui/settings" method="post">
+                <label>Radio Stream URL</label>
+                <input type="url" name="radio_url" value="<%= (settings && settings.radio_url) || '' %>" />
+                <label>Theme</label>
+                <input type="text" name="theme" value="<%= (settings && settings.theme) || 'default' %>" />
+                <label><input type="checkbox" name="notification_enabled" <%=(settings && settings.notification_enabled)
+                    ? 'checked' : '' %> /> Notifications enabled</label>
+                <div style="margin-top:10px"><button class="btn" type="submit">Save Settings</button></div>
+              </form>
+            </div>
+  </main>
+</body>
+
+</html>
