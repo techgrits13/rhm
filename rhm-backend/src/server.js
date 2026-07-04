@@ -15,6 +15,7 @@ import adminUIRoute from './routes/adminUI.js';
 import notificationsRoute from './routes/notifications.js';
 import musicRoute from './routes/music.js';
 import breakingNewsRoute from './routes/breakingNews.js';
+import analyticsRoute from './routes/analytics.js';
 import adminAuth from './middleware/adminAuth.js';
 import mobileAdminRoute from './routes/mobileAdmin.js';
 
@@ -65,6 +66,7 @@ app.use('/api/admin', adminRoute);
 app.use('/api/notifications', notificationsRoute);
 app.use('/api/music', musicRoute);
 app.use('/api/breaking-news', breakingNewsRoute);
+app.use('/api/analytics', analyticsRoute);
 app.use('/api/mobile-admin', mobileAdminRoute); // Mobile admin uploads (no auth)
 app.use('/admin-ui', adminAuth, adminUIRoute);
 
@@ -118,4 +120,3 @@ process.on('uncaughtException', (err) => {
 process.on('unhandledRejection', (reason, promise) => {
   console.error('🔥 CRITICAL: Unhandled Rejection at:', promise, 'reason:', reason);
 });
-

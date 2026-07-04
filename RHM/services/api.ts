@@ -2,6 +2,15 @@ import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import Constants from 'expo-constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+declare module 'axios' {
+  interface AxiosRequestConfig {
+    metadata?: {
+      retryCount?: number;
+      suppressErrorLog?: boolean;
+    };
+  }
+}
+
 // API Configuration
 // Use EXPO_PUBLIC_API_BASE_URL when provided.
 // Otherwise pick a sensible default based on build type: local IP for development, Render URL for production builds.
@@ -22,7 +31,10 @@ const MAX_RETRY_DELAY = 10000; // 10 seconds
 
 // Extend AxiosRequestConfig to include metadata
 interface CustomAxiosRequestConfig extends InternalAxiosRequestConfig {
-  metadata?: { retryCount: number };
+  metadata?: {
+    retryCount?: number;
+    suppressErrorLog?: boolean;
+  };
 }
 
 const api = axios.create({
@@ -91,9 +103,10 @@ api.interceptors.request.use(
     }
 
     // Add retry metadata
-    if (!config.metadata) {
-      config.metadata = { retryCount: 0 };
-    }
+    config.metadata = {
+      ...config.metadata,
+      retryCount: config.metadata?.retryCount || 0,
+    };
 
     return config;
   },
@@ -111,14 +124,17 @@ api.interceptors.response.use(
       return Promise.reject(error);
     }
 
-    const { retryCount } = config.metadata;
+    const retryCount = config.metadata.retryCount || 0;
+    const suppressErrorLog = !!config.metadata.suppressErrorLog;
 
     // Check if we should retry
     if (retryCount < MAX_RETRIES && isRetryableError(error)) {
-      config.metadata.retryCount++;
+      config.metadata.retryCount = retryCount + 1;
       const delay = getRetryDelay(retryCount);
 
-      console.log(`⏳ Retrying request (${retryCount + 1}/${MAX_RETRIES}) after ${delay}ms...`);
+      if (!suppressErrorLog) {
+        console.log(`⏳ Retrying request (${retryCount + 1}/${MAX_RETRIES}) after ${delay}ms...`);
+      }
 
       await sleep(delay);
 
@@ -126,12 +142,14 @@ api.interceptors.response.use(
     }
 
     // Max retries exceeded or non-retryable error
-    if (error.response) {
-      console.error(`API Error (${error.response.status}):`, error.message);
-    } else if (error.request) {
-      console.error('Network Error:', error.message);
-    } else {
-      console.error('Request Error:', error.message);
+    if (!suppressErrorLog) {
+      if (error.response) {
+        console.error(`API Error (${error.response.status}):`, error.message);
+      } else if (error.request) {
+        console.error('Network Error:', error.message);
+      } else {
+        console.error('Request Error:', error.message);
+      }
     }
 
     return Promise.reject(error);

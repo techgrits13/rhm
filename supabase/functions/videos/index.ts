@@ -5,7 +5,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-video-sync-secret',
 }
 
 const CHURCH_CHANNELS = [
@@ -34,6 +34,16 @@ serve(async (req) => {
 
     // POST /sync
     if (req.method === 'POST') {
+      // @ts-ignore
+      const syncSecret = Deno.env.get('VIDEO_SYNC_SECRET') ?? 'rhm_video_sync_secret_2026'
+      const requestSecret = req.headers.get('x-video-sync-secret') ?? ''
+      if (requestSecret !== syncSecret) {
+        return new Response(JSON.stringify({ error: 'Video sync is restricted' }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 403,
+        })
+      }
+
       // @ts-ignore
       const youtubeApiKey = Deno.env.get('YOUTUBE_API_KEY')
       if (!youtubeApiKey) throw new Error('YOUTUBE_API_KEY missing')

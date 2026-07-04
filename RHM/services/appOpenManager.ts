@@ -5,8 +5,8 @@ import Constants from 'expo-constants';
 import { safeGetJson } from '../utils/safeStorage';
 
 const STORAGE_KEY = '@ads_app_open_stats';
-const DAILY_LIMIT = 3; // Strict Policy: Max 3 shows per day limit to stay within AdMob App Open policy
-const MIN_INTERVAL_MS = 3 * 60 * 60 * 1000; // 3 hours between ads to avoid spamming the user
+const DAILY_LIMIT = 8;
+export const APP_OPEN_MIN_INTERVAL_MS = 60 * 60 * 1000;
 
 type Stats = {
   lastShownAt?: number;
@@ -32,7 +32,7 @@ async function canShow(): Promise<boolean> {
   if (count >= DAILY_LIMIT) return false;
   if (stats.lastShownAt) {
     const elapsed = Date.now() - stats.lastShownAt;
-    if (elapsed < MIN_INTERVAL_MS) return false;
+    if (elapsed < APP_OPEN_MIN_INTERVAL_MS) return false;
   }
   return true;
 }

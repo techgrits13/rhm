@@ -33,8 +33,8 @@ const ANDROID_REAL: Partial<AdUnitSet> = {
   native: 'ca-app-pub-3848557016813463/6470879502',
 };
 
-// DEV/TEST MODE: Force test ads for verification
-const FORCE_TEST_ADS = false; // Set to false for the FINAL store release
+// TEST MODE: keep true while testing so no development build requests live AdMob inventory.
+const FORCE_TEST_ADS = false; // Set to false only for the final store release.
 const isDevelopment = __DEV__;
 
 export const AD_UNITS: AdUnitSet = (FORCE_TEST_ADS || isDevelopment) 

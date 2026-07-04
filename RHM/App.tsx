@@ -6,7 +6,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { initAds } from './services/adsInit';
-import { showAppOpenAdIfEligible } from './services/appOpenManager';
+import { APP_OPEN_MIN_INTERVAL_MS, showAppOpenAdIfEligible } from './services/appOpenManager';
 import { ThemeProvider } from './context/ThemeContext';
 import { NotificationProvider } from './context/NotificationContext';
 import { AudioProvider } from './context/AudioContext';
@@ -15,7 +15,8 @@ import ErrorBoundary from './components/ErrorBoundary';
 import NotificationOverlay from './components/NotificationOverlay';
 import NotificationHandler from './components/NotificationHandler';
 import NotificationErrorBoundary from './components/NotificationErrorBoundary';
-import { registerForPushNotifications } from './services/notificationService';
+import { maybeShowNotificationPermissionReminder, registerForPushNotifications } from './services/notificationService';
+import { trackAppActivity } from './services/analyticsService';
 
 // Import screens
 import HomeScreen from './screens/HomeScreen';
@@ -123,6 +124,8 @@ function MainTabNavigator() {
 export default function App() {
   const disableAds = !!(Constants?.expoConfig?.extra as any)?.disableAds;
   const navigationRef = useRef<any>(null);
+  const appStateRef = useRef<AppStateStatus>(AppState.currentState);
+  const backgroundedAtRef = useRef<number | null>(null);
 
   // Initialize app services (ads only - NO notifications)
   useEffect(() => {
@@ -149,11 +152,19 @@ export default function App() {
     (async () => {
       try {
         await registerForPushNotifications();
+        await maybeShowNotificationPermissionReminder();
         console.log('✅ Push notifications registered');
       } catch (error) {
         console.warn('⚠️ Push notification registration failed (non-critical):', error);
       }
     })();
+  }, []);
+
+  // Track active devices and daily app opens for the admin dashboard.
+  useEffect(() => {
+    trackAppActivity(true);
+    const heartbeat = setInterval(() => trackAppActivity(false), 60000);
+    return () => clearInterval(heartbeat);
   }, []);
 
   // ── Cold-start: app was KILLED and user tapped a notification ──────────────
@@ -208,8 +219,21 @@ export default function App() {
   // Handle app state changes for ads
   useEffect(() => {
     const onChange = (state: AppStateStatus) => {
-      if (state === 'active' && !disableAds) {
-        showAppOpenAdIfEligible();
+      const previousState = appStateRef.current;
+      appStateRef.current = state;
+
+      if (state === 'background' || state === 'inactive') {
+        backgroundedAtRef.current = Date.now();
+      }
+
+      if (state === 'active') {
+        trackAppActivity(true);
+        maybeShowNotificationPermissionReminder();
+        const backgroundedAt = backgroundedAtRef.current;
+        const wasAwayLongEnough = !!backgroundedAt && Date.now() - backgroundedAt >= APP_OPEN_MIN_INTERVAL_MS;
+        if (!disableAds && previousState.match(/inactive|background/) && wasAwayLongEnough) {
+          showAppOpenAdIfEligible();
+        }
       }
     };
     const sub = AppState.addEventListener('change', onChange);

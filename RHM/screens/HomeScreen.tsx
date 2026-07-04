@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   Linking,
   Modal,
+  TextInput,
   TouchableWithoutFeedback
 } from 'react-native';
 import { videoService, Video } from '../services/videoService';
@@ -25,6 +26,8 @@ export default function HomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [playingVideoId, setPlayingVideoId] = useState<string | null>(null);
   const [menuVisible, setMenuVisible] = useState(false);
+  const [searchVisible, setSearchVisible] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     fetchVideos();
@@ -34,31 +37,33 @@ export default function HomeScreen() {
   useLayoutEffect(() => {
     navigation.setOptions({
       headerRight: () => (
-        <TouchableOpacity
-          onPress={() => setMenuVisible(true)}
-          style={{ marginRight: 15 }}
-        >
-          <Ionicons name="menu" size={28} color="#fff" />
-        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          <TouchableOpacity
+            onPress={() => setSearchVisible((visible) => !visible)}
+            style={styles.headerButton}
+            accessibilityRole="button"
+            accessibilityLabel="Search"
+          >
+            <Ionicons name={searchVisible ? 'close' : 'search'} size={25} color="#fff" />
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => setMenuVisible(true)}
+            style={styles.headerButton}
+            accessibilityRole="button"
+            accessibilityLabel="Open menu"
+          >
+            <Ionicons name="menu" size={28} color="#fff" />
+          </TouchableOpacity>
+        </View>
       ),
     });
-  }, [navigation]);
+  }, [navigation, searchVisible]);
 
-  const fetchVideos = async (forceSync = false) => {
+  const fetchVideos = async () => {
     try {
       setLoading(true);
       const response = await videoService.getAllVideos();
-      
-      // If no videos found and not already forced, try to sync from YouTube
-      if ((!response.videos || response.videos.length === 0) && !forceSync) {
-        console.log('💡 No videos found in database. Triggering automatic sync from YouTube...');
-        await videoService.syncVideos();
-        // Fetch again after sync
-        const nextResponse = await videoService.getAllVideos();
-        setVideos(nextResponse.videos || []);
-      } else {
-        setVideos(response.videos || []);
-      }
+      setVideos(response.videos || []);
     } catch (error) {
       console.error('Failed to fetch videos:', error);
     } finally {
@@ -68,9 +73,7 @@ export default function HomeScreen() {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    // Trigger a sync in the background so it doesn't block the UI
-    videoService.syncVideos().catch(err => console.error('Background sync failed:', err));
-    await fetchVideos(true); // forceSync true to refresh from DB
+    await fetchVideos();
     setRefreshing(false);
   };
 
@@ -150,17 +153,67 @@ export default function HomeScreen() {
 
   const renderEmpty = () => (
     <View style={styles.emptyContainer}>
-      <Text style={styles.emptyText}>No videos available yet</Text>
-      <Text style={styles.emptySubtext}>
-        Check back soon for new content from our church!
+      <Text style={styles.emptyText}>
+        {searchQuery.trim() ? 'No matching videos' : 'No videos available yet'}
       </Text>
+      <Text style={styles.emptySubtext}>
+        {searchQuery.trim()
+          ? 'Try a different title or description from the videos already loaded on Home.'
+          : 'Check back soon for new content from our church!'}
+      </Text>
+      {!!searchQuery.trim() && (
+        <TouchableOpacity
+          style={styles.showAllButton}
+          onPress={() => {
+            setSearchQuery('');
+            setSearchVisible(false);
+          }}
+          accessibilityRole="button"
+          accessibilityLabel="Show all videos"
+        >
+          <Ionicons name="home-outline" size={18} color="#fff" />
+          <Text style={styles.showAllButtonText}>Show Home Videos</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 
+  const normalizedSearch = searchQuery.trim().toLowerCase();
+  const filteredVideos = normalizedSearch
+    ? videos.filter((video) => {
+      const searchableText = `${video.title || ''} ${video.description || ''}`.toLowerCase();
+      return searchableText.includes(normalizedSearch);
+    })
+    : videos;
+
   return (
     <View style={styles.container}>
+      {searchVisible && (
+        <View style={styles.searchContainer}>
+          <Ionicons name="search" size={20} color="#777" />
+          <TextInput
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            placeholder="Search"
+            placeholderTextColor="#777"
+            style={styles.searchInput}
+            autoFocus
+            returnKeyType="search"
+            clearButtonMode="while-editing"
+          />
+          {!!searchQuery && (
+            <TouchableOpacity
+              onPress={() => setSearchQuery('')}
+              accessibilityRole="button"
+              accessibilityLabel="Clear search"
+            >
+              <Ionicons name="close-circle" size={20} color="#777" />
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
       <FlatList
-        data={videos}
+        data={filteredVideos}
         renderItem={renderVideoCard}
         keyExtractor={(item) => item.id.toString()}
         contentContainerStyle={styles.listContent}
@@ -229,6 +282,36 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 8,
+  },
+  headerButton: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#fff',
+    margin: 12,
+    marginBottom: 0,
+    paddingHorizontal: 12,
+    height: 48,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#ddd',
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 16,
+    color: '#222',
+    paddingVertical: 0,
   },
   listContent: {
     padding: 12,
@@ -322,6 +405,22 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     paddingHorizontal: 40,
   },
+  showAllButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#6200ee',
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginTop: 18,
+  },
+  showAllButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '700',
+  },
   // Menu Styles
   modalOverlay: {
     flex: 1,
@@ -364,4 +463,3 @@ const styles = StyleSheet.create({
     marginHorizontal: 8,
   },
 });
-

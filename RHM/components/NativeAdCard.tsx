@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { BannerAd, BannerAdSize } from 'react-native-google-mobile-ads';
 import { AD_UNITS } from '../services/ads';
 import Constants from 'expo-constants';
 
@@ -14,11 +13,11 @@ interface NativeAdCardProps {
  * Native ads often fail to fill for new ad units, but Banners always work.
  */
 export default function NativeAdCard({ style }: NativeAdCardProps) {
-  const [adError, setAdError] = useState(false);
+  const [lastError, setLastError] = useState<string | null>(null);
   const disableAds = !!(Constants?.expoConfig?.extra as any)?.disableAds;
 
   if (disableAds || !AD_UNITS.banner) {
-    return null;
+    return <View style={[styles.reservedSpace, style]} />;
   }
 
   // If we are in Expo Go, ads might not render
@@ -30,8 +29,14 @@ export default function NativeAdCard({ style }: NativeAdCardProps) {
     );
   }
 
-  if (adError) {
-    return null;
+  let BannerAd: any;
+  let BannerAdSize: any;
+  try {
+    const mod = require('react-native-google-mobile-ads');
+    BannerAd = mod.BannerAd;
+    BannerAdSize = mod.BannerAdSize;
+  } catch (e) {
+    return <View style={[styles.reservedSpace, style]} />;
   }
 
   return (
@@ -40,11 +45,11 @@ export default function NativeAdCard({ style }: NativeAdCardProps) {
         unitId={AD_UNITS.banner}
         size={BannerAdSize.MEDIUM_RECTANGLE}
         requestOptions={{
-          requestNonPersonalizedAdsOnly: true,
+          requestNonPersonalizedAdsOnly: false,
         }}
-        onAdFailedToLoad={(error) => {
-          console.error('Radio Screen Ad failed to load: ', error);
-          setAdError(true);
+        onAdFailedToLoad={(error: any) => {
+          console.warn('[NativeAdCard] Ad failed to load:', error?.message || error);
+          setLastError(error?.message);
         }}
       />
     </View>
@@ -56,7 +61,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#fff',
-    borderRadius: 12,
+    width: '100%',
+    maxWidth: 340,
+    minHeight: 270,
+    alignSelf: 'center',
+    borderRadius: 8,
     overflow: 'hidden',
     marginVertical: 10,
     marginHorizontal: 16,
@@ -67,7 +76,15 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     borderWidth: 1,
     borderColor: '#e8e8e8',
-    padding: 10, // padding to give a nice border around the ad
+    padding: 10,
+  },
+  reservedSpace: {
+    width: '100%',
+    maxWidth: 340,
+    minHeight: 270,
+    alignSelf: 'center',
+    marginVertical: 10,
+    backgroundColor: 'transparent',
   },
   fallbackContainer: {
     height: 250,

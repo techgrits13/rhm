@@ -43,15 +43,4 @@ export const videoService = {
     }
   },
 
-  // Sync videos from YouTube
-  syncVideos: async (): Promise<{ success: boolean; message: string }> => {
-    try {
-      console.log('☁️ Syncing videos from YouTube via Supabase Edge Function...');
-      const response = await supabaseApi.post('/videos'); // POST triggers sync
-      return response.data;
-    } catch (error) {
-      console.error('Error syncing videos:', error);
-      throw error;
-    }
-  },
 };

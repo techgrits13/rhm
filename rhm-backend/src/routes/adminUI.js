@@ -15,6 +15,58 @@ const ALLOWED_AUDIO_TYPES = ['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/x-m4
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
 const MAX_TITLE_LENGTH = 200;
 const MAX_CONTENT_LENGTH = 5000;
+const ACTIVE_WINDOW_MINUTES = 5;
+
+function getNairobiDate(offsetDays = 0) {
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Africa/Nairobi',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+  const date = new Date();
+  date.setUTCDate(date.getUTCDate() + offsetDays);
+  return formatter.format(date);
+}
+
+async function getAnalyticsSummary() {
+  const activeSince = new Date(Date.now() - ACTIVE_WINDOW_MINUTES * 60 * 1000).toISOString();
+  const today = getNairobiDate();
+  const sevenDaysAgo = getNairobiDate(-6);
+  const twentyEightDaysAgo = getNairobiDate(-27);
+
+  const [activeNow, openedToday, openedSevenDays, openedTwentyEightDays] = await Promise.all([
+    supabase
+      .from('app_devices')
+      .select('device_id', { count: 'exact', head: true })
+      .gte('last_seen_at', activeSince),
+    supabase
+      .from('app_daily_device_activity')
+      .select('device_id', { count: 'exact', head: true })
+      .eq('activity_date', today),
+    supabase
+      .from('app_daily_device_activity')
+      .select('device_id')
+      .gte('activity_date', sevenDaysAgo)
+      .lte('activity_date', today),
+    supabase
+      .from('app_daily_device_activity')
+      .select('device_id')
+      .gte('activity_date', twentyEightDaysAgo)
+      .lte('activity_date', today),
+  ]);
+
+  const firstError = [activeNow, openedToday, openedSevenDays, openedTwentyEightDays].find((result) => result.error);
+  if (firstError?.error) throw firstError.error;
+
+  return {
+    activeNow: activeNow.count || 0,
+    openedToday: openedToday.count || 0,
+    openedLast7Days: new Set((openedSevenDays.data || []).map((row) => row.device_id)).size,
+    openedLast28Days: new Set((openedTwentyEightDays.data || []).map((row) => row.device_id)).size,
+    activeWindowMinutes: ACTIVE_WINDOW_MINUTES,
+  };
+}
 
 /**
  * Sanitize user input to prevent XSS
@@ -113,12 +165,26 @@ router.get('/', async (req, res) => {
       .limit(1)
       .single();
 
+    let analytics = {
+      activeNow: 0,
+      openedToday: 0,
+      openedLast7Days: 0,
+      openedLast28Days: 0,
+      activeWindowMinutes: ACTIVE_WINDOW_MINUTES,
+    };
+
+    try {
+      analytics = await getAnalyticsSummary();
+    } catch (analyticsError) {
+      console.error('Failed to load analytics summary:', analyticsError);
+    }
+
     res.render('admin', {
       images: images || [],
       music: music || [],
       news: news || [],
       settings: settings || { theme: 'default', radio_url: '', notification_enabled: true },
-      settings: settings || { theme: 'default', radio_url: '', notification_enabled: true },
+      analytics,
       message: req.query.message || '',
       error: req.query.error || '',
     });

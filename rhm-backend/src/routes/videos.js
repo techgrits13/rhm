@@ -1,10 +1,31 @@
 import express from 'express';
 import supabase from '../utils/supabaseClient.js';
-import { CHURCH_CHANNELS } from '../services/youtubeService.js';
+import { CHURCH_CHANNELS, checkForNewVideos } from '../services/youtubeService.js';
+import { config } from '../config.js';
 
 const router = express.Router();
 
 const ALLOWED_CHANNEL_IDS = CHURCH_CHANNELS.map((c) => c.id).filter(Boolean);
+
+// POST /api/videos/sync - Manually trigger YouTube sync (admin only)
+router.post('/sync', async (req, res) => {
+  const user = req.headers['x-admin-user'];
+  const pass = req.headers['x-admin-password'];
+
+  if (pass !== config.adminPassword || (config.adminUsername && user !== config.adminUsername)) {
+    return res.status(401).json({ success: false, error: 'Unauthorized' });
+  }
+
+  try {
+    console.log('🔄 Manual YouTube sync triggered by admin...');
+    const count = await checkForNewVideos();
+    console.log(`✅ Manual sync complete. Processed: ${count}`);
+    res.json({ success: true, processed: count, message: `Sync complete. ${count} video(s) processed/updated.` });
+  } catch (err) {
+    console.error('❌ Manual YouTube sync error:', err);
+    res.status(500).json({ success: false, error: err?.message || 'Sync failed' });
+  }
+});
 
 // GET /api/videos - Fetch all cached videos from allowed church channels only
 router.get('/', async (req, res) => {

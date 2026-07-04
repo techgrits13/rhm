@@ -120,6 +120,33 @@
       display: inline-block;
       margin-left: 8px;
     }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 12px;
+    }
+
+    .stat {
+      border: 1px solid #ececf4;
+      border-radius: 8px;
+      padding: 14px;
+      background: #fbfbff;
+    }
+
+    .stat-value {
+      font-size: 30px;
+      font-weight: 800;
+      color: #4f46e5;
+      line-height: 1;
+    }
+
+    .stat-label {
+      margin-top: 8px;
+      font-size: 13px;
+      color: #555;
+      font-weight: 650;
+    }
   </style>
 </head>
 
@@ -139,6 +166,32 @@
             <%= error %>
           </div>
           <% } %>
+
+            <div class="card">
+              <h2>App Usage</h2>
+              <div class="stats">
+                <div class="stat">
+                  <div class="stat-value"><%= (analytics && analytics.activeNow) || 0 %></div>
+                  <div class="stat-label">Active now</div>
+                  <div class="muted">Seen in the last <%= (analytics && analytics.activeWindowMinutes) || 5 %> minutes</div>
+                </div>
+                <div class="stat">
+                  <div class="stat-value"><%= (analytics && analytics.openedToday) || 0 %></div>
+                  <div class="stat-label">Opened today</div>
+                  <div class="muted">Africa/Nairobi day</div>
+                </div>
+                <div class="stat">
+                  <div class="stat-value"><%= (analytics && analytics.openedLast7Days) || 0 %></div>
+                  <div class="stat-label">Last 7 days</div>
+                  <div class="muted">Rolling calendar window</div>
+                </div>
+                <div class="stat">
+                  <div class="stat-value"><%= (analytics && analytics.openedLast28Days) || 0 %></div>
+                  <div class="stat-label">Last 28 days</div>
+                  <div class="muted">Rolling calendar window</div>
+                </div>
+              </div>
+            </div>
 
             <div class="card">
               <h2>1) YouTube Sync</h2>

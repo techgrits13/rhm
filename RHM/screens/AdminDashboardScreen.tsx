@@ -15,12 +15,14 @@ import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { uploadBreakingNews, uploadMusicTrack, deleteBreakingNews, deleteMusicTrack, broadcastNotification, purgeStaleTokens, checkRegisteredTokens } from '../services/adminUploadService';
-import { supabaseApi } from '../services/api';
+import api, { supabaseApi } from '../services/api';
 import { musicService } from '../services/musicService';
 import { registerForPushNotifications } from '../services/notificationService';
 
-type TabType = 'news' | 'music' | 'manage' | 'push';
+type TabType = 'news' | 'music' | 'manage' | 'push' | 'analytics';
 type NewsType = 'text' | 'image' | 'video' | 'poll' | 'link';
+const ADMIN_USERNAME = 'esir';
+const ADMIN_PASSWORD = '12822Esir@#';
 
 export default function AdminDashboardScreen({ navigation }: any) {
     const [activeTab, setActiveTab] = useState<TabType>('news');
@@ -82,6 +84,19 @@ export default function AdminDashboardScreen({ navigation }: any) {
                     </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
+                    style={[styles.tab, activeTab === 'analytics' && styles.tabActive]}
+                    onPress={() => setActiveTab('analytics')}
+                >
+                    <Ionicons
+                        name="stats-chart"
+                        size={20}
+                        color={activeTab === 'analytics' ? '#fff' : '#6200ee'}
+                    />
+                    <Text style={[styles.tabText, activeTab === 'analytics' && styles.tabTextActive]}>
+                        Stats
+                    </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
                     style={styles.tab}
                     onPress={() => navigation.navigate('ToDoList')}
                 >
@@ -95,6 +110,192 @@ export default function AdminDashboardScreen({ navigation }: any) {
             {activeTab === 'music' && <MusicTab />}
             {activeTab === 'manage' && <ManageContentTab />}
             {activeTab === 'push' && <PushAlertsTab />}
+            {activeTab === 'analytics' && <AnalyticsTab />}
+        </View>
+    );
+}
+
+function AnalyticsTab() {
+    const [loading, setLoading] = React.useState(true);
+    const [metrics, setMetrics] = React.useState({
+        activeNow: 0,
+        openedToday: 0,
+        openedLast7Days: 0,
+        openedLast28Days: 0,
+    });
+    const [activeWindowMinutes, setActiveWindowMinutes] = React.useState(5);
+    const [errorMessage, setErrorMessage] = React.useState('');
+
+    const fetchAnalytics = React.useCallback(async () => {
+        setLoading(true);
+        setErrorMessage('');
+        try {
+            const response = await supabaseApi.get('/analytics', {
+                headers: {
+                    'x-admin-user': ADMIN_USERNAME,
+                    'x-admin-password': ADMIN_PASSWORD,
+                },
+                metadata: { suppressErrorLog: true },
+            });
+            setMetrics(response.data?.metrics || { activeNow: 0, openedToday: 0, openedLast7Days: 0, openedLast28Days: 0 });
+            setActiveWindowMinutes(response.data?.windows?.activeMinutes || 5);
+        } catch (error: any) {
+            const status = error?.response?.status;
+            const message = status === 404
+                ? 'Stats endpoint not found on Supabase. Make sure the analytics Edge Function is deployed.'
+                : status === 401
+                    ? 'Admin credentials mismatch. Ensure credentials match the Edge Function parameters.'
+                    : status === 500
+                        ? (error?.response?.data?.error || 'Database error — check if app_devices and app_daily_device_activity tables exist in Supabase.')
+                        : error?.message || 'Could not load app usage stats.';
+            setErrorMessage(message);
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    React.useEffect(() => {
+        fetchAnalytics();
+    }, [fetchAnalytics]);
+
+    return (
+        <ScrollView
+            style={styles.tabContent}
+            contentContainerStyle={styles.analyticsScrollContent}
+            keyboardShouldPersistTaps="handled"
+        >
+            <View style={styles.analyticsHeader}>
+                <Ionicons name="stats-chart-outline" size={42} color="#6200ee" />
+                <Text style={styles.analyticsTitle}>App Usage</Text>
+                <Text style={styles.analyticsSubtitle}>Visible only inside the hidden admin dashboard.</Text>
+            </View>
+
+            {loading ? (
+                <ActivityIndicator size="large" color="#6200ee" style={{ marginTop: 40 }} />
+            ) : (
+                <View style={styles.analyticsGrid}>
+                    <MetricCard label="Active now" value={metrics.activeNow} helper={`Last ${activeWindowMinutes} min`} icon="pulse" />
+                    <MetricCard label="Opened today" value={metrics.openedToday} helper="Today so far" icon="today" />
+                    <MetricCard label="Last 7 days" value={metrics.openedLast7Days} helper="Unique devices" icon="calendar" />
+                    <MetricCard label="Last 28 days" value={metrics.openedLast28Days} helper="Unique devices" icon="calendar-outline" />
+                </View>
+            )}
+
+            {!!errorMessage && (
+                <View style={styles.analyticsErrorBox}>
+                    <Ionicons name="alert-circle-outline" size={20} color="#b71c1c" />
+                    <Text style={styles.analyticsErrorText}>{errorMessage}</Text>
+                </View>
+            )}
+
+            {!errorMessage && !loading && metrics.openedToday === 0 && (
+                <View style={styles.analyticsInfoBox}>
+                    <Ionicons name="information-circle-outline" size={18} color="#1565c0" />
+                    <Text style={styles.analyticsInfoText}>
+                        {'Showing zeros? Possible causes:\n• Supabase analytics tables not created (run setup_analytics_schema.sql in Supabase SQL editor)\n• App tracking just started — open the app from the home screen to register the first session\n\nTracking fires automatically every time anyone opens the RHM app.'}
+                    </Text>
+                </View>
+            )}
+
+            <TouchableOpacity
+                style={[styles.debugButton, loading && styles.uploadButtonDisabled]}
+                onPress={fetchAnalytics}
+                disabled={loading}
+            >
+                <Ionicons name="refresh" size={18} color="#1565c0" />
+                <Text style={styles.debugButtonText}>Refresh Stats</Text>
+            </TouchableOpacity>
+
+            {/* YouTube Sync Section */}
+            <View style={styles.divider} />
+            <YouTubeSyncSection />
+        </ScrollView>
+    );
+}
+
+function YouTubeSyncSection() {
+    const [syncing, setSyncing] = React.useState(false);
+    const [syncResult, setSyncResult] = React.useState<{ processed: number; message: string } | null>(null);
+    const [syncError, setSyncError] = React.useState('');
+
+    const handleYouTubeSync = async () => {
+        setSyncing(true);
+        setSyncResult(null);
+        setSyncError('');
+        try {
+            const response = await supabaseApi.post('/videos', {}, {
+                headers: {
+                    'x-video-sync-secret': 'rhm_video_sync_secret_2026', // Use the sync secret expected by the edge function
+                },
+                metadata: { suppressErrorLog: true },
+            });
+            if (response.data?.success) {
+                setSyncResult({ processed: response.data.count, message: `Sync complete. Fetched ${response.data.count} new videos!` });
+            } else {
+                setSyncError(response.data?.error || 'Sync returned an error.');
+            }
+        } catch (error: any) {
+            const msg = error?.response?.data?.error || error?.message || 'YouTube sync failed.';
+            setSyncError(msg);
+        } finally {
+            setSyncing(false);
+        }
+    };
+
+    return (
+        <View>
+            <View style={styles.ytSyncHeader}>
+                <Ionicons name="logo-youtube" size={28} color="#FF0000" />
+                <Text style={styles.ytSyncTitle}>YouTube Sync</Text>
+            </View>
+            <Text style={styles.ytSyncSubtitle}>
+                Force-fetch latest videos from all church channels and update the database. The scheduler auto-runs every 15 min.
+            </Text>
+
+            {!!syncResult && (
+                <View style={styles.syncSuccessBox}>
+                    <Ionicons name="checkmark-circle" size={20} color="#2e7d32" />
+                    <Text style={styles.syncSuccessText}>{syncResult.message}</Text>
+                </View>
+            )}
+
+            {!!syncError && (
+                <View style={styles.analyticsErrorBox}>
+                    <Ionicons name="alert-circle-outline" size={20} color="#b71c1c" />
+                    <Text style={styles.analyticsErrorText}>{syncError}</Text>
+                </View>
+            )}
+
+            <TouchableOpacity
+                style={[styles.ytSyncButton, syncing && styles.uploadButtonDisabled]}
+                onPress={handleYouTubeSync}
+                disabled={syncing}
+            >
+                {syncing ? (
+                    <>
+                        <ActivityIndicator color="#fff" size="small" />
+                        <Text style={styles.ytSyncButtonText}>Syncing…</Text>
+                    </>
+                ) : (
+                    <>
+                        <Ionicons name="sync" size={20} color="#fff" />
+                        <Text style={styles.ytSyncButtonText}>Sync YouTube Now</Text>
+                    </>
+                )}
+            </TouchableOpacity>
+        </View>
+    );
+}
+
+function MetricCard({ label, value, helper, icon }: { label: string; value: number; helper: string; icon: keyof typeof Ionicons.glyphMap }) {
+    return (
+        <View style={styles.metricCard}>
+            <View style={styles.metricIcon}>
+                <Ionicons name={icon} size={22} color="#6200ee" />
+            </View>
+            <Text style={styles.metricValue}>{value}</Text>
+            <Text style={styles.metricLabel}>{label}</Text>
+            <Text style={styles.metricHelper}>{helper}</Text>
         </View>
     );
 }
@@ -888,23 +1089,24 @@ const styles = StyleSheet.create({
     },
     tabContainer: {
         flexDirection: 'row',
+        flexWrap: 'wrap',
         backgroundColor: '#fff',
         borderBottomWidth: 1,
         borderBottomColor: '#ddd',
     },
     tab: {
-        flex: 1,
+        width: '33.333%',
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        paddingVertical: 16,
-        gap: 8,
+        paddingVertical: 12,
+        gap: 6,
     },
     tabActive: {
         backgroundColor: '#6200ee',
     },
     tabText: {
-        fontSize: 16,
+        fontSize: 12,
         fontWeight: '600',
         color: '#6200ee',
     },
@@ -914,6 +1116,82 @@ const styles = StyleSheet.create({
     tabContent: {
         flex: 1,
         padding: 16,
+    },
+    analyticsHeader: {
+        alignItems: 'center',
+        marginVertical: 20,
+    },
+    analyticsScrollContent: {
+        paddingBottom: 140,
+    },
+    analyticsTitle: {
+        fontSize: 22,
+        fontWeight: '700',
+        color: '#333',
+        marginTop: 10,
+    },
+    analyticsSubtitle: {
+        fontSize: 13,
+        color: '#666',
+        marginTop: 6,
+        textAlign: 'center',
+    },
+    analyticsGrid: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 12,
+        marginBottom: 16,
+    },
+    metricCard: {
+        width: '48%',
+        minHeight: 150,
+        backgroundColor: '#fff',
+        borderRadius: 8,
+        padding: 14,
+        borderWidth: 1,
+        borderColor: '#e6e0f2',
+    },
+    metricIcon: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        backgroundColor: '#f1e8ff',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 12,
+    },
+    metricValue: {
+        fontSize: 32,
+        fontWeight: '800',
+        color: '#6200ee',
+    },
+    metricLabel: {
+        fontSize: 14,
+        fontWeight: '700',
+        color: '#333',
+        marginTop: 4,
+    },
+    metricHelper: {
+        fontSize: 12,
+        color: '#777',
+        marginTop: 4,
+    },
+    analyticsErrorBox: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        backgroundColor: '#ffebee',
+        borderWidth: 1,
+        borderColor: '#ffcdd2',
+        borderRadius: 8,
+        padding: 12,
+        marginBottom: 12,
+    },
+    analyticsErrorText: {
+        flex: 1,
+        color: '#b71c1c',
+        fontSize: 13,
+        lineHeight: 18,
     },
     label: {
         fontSize: 14,
@@ -1223,5 +1501,74 @@ const styles = StyleSheet.create({
         color: '#1565c0',
         fontSize: 14,
         fontWeight: '700',
+    },
+    // ── Analytics info box (zero hint) ─────────────────────────────────────
+    analyticsInfoBox: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        gap: 8,
+        backgroundColor: '#e3f2fd',
+        borderWidth: 1,
+        borderColor: '#90caf9',
+        borderRadius: 8,
+        padding: 12,
+        marginBottom: 12,
+    },
+    analyticsInfoText: {
+        flex: 1,
+        color: '#1565c0',
+        fontSize: 13,
+        lineHeight: 18,
+    },
+    // ── YouTube Sync section ────────────────────────────────────────────────
+    ytSyncHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+        marginBottom: 6,
+    },
+    ytSyncTitle: {
+        fontSize: 18,
+        fontWeight: '700',
+        color: '#333',
+    },
+    ytSyncSubtitle: {
+        fontSize: 13,
+        color: '#666',
+        lineHeight: 18,
+        marginBottom: 14,
+    },
+    ytSyncButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#CC0000',
+        padding: 14,
+        borderRadius: 8,
+        marginTop: 4,
+        marginBottom: 32,
+        gap: 8,
+    },
+    ytSyncButtonText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: 'bold',
+    },
+    syncSuccessBox: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        backgroundColor: '#e8f5e9',
+        borderWidth: 1,
+        borderColor: '#a5d6a7',
+        borderRadius: 8,
+        padding: 12,
+        marginBottom: 12,
+    },
+    syncSuccessText: {
+        flex: 1,
+        color: '#2e7d32',
+        fontSize: 13,
+        fontWeight: '600',
     },
 });

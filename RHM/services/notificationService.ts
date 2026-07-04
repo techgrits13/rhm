@@ -1,6 +1,6 @@
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
-import { Platform } from 'react-native';
+import { Alert, Linking, Platform } from 'react-native';
 import api, { supabaseApi } from './api';
 import { API_BASE_URL } from '../config';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -20,6 +20,10 @@ Notifications.setNotificationHandler({
 const EAS_PROJECT_ID = '099536d0-ecd3-43dd-bb67-61be5f1976c1';
 
 const PUSH_TOKEN_KEY = '@rhm_push_token';
+const NOTIFICATION_DENIED_KEY = '@rhm_notifications_denied';
+const NOTIFICATION_REMINDER_STATE_KEY = '@rhm_notification_reminder_state';
+const MAX_DENIED_REMINDERS_PER_DAY = 4;
+const MIN_REMINDER_INTERVAL_MS = 3 * 60 * 60 * 1000;
 
 /**
  * Create the Android notification channel.
@@ -66,9 +70,12 @@ export async function registerForPushNotifications(): Promise<string | null> {
         }
 
         if (finalStatus !== 'granted') {
-            console.warn('❌ Notification permissions denied');
+            await AsyncStorage.setItem(NOTIFICATION_DENIED_KEY, 'true');
+            console.warn('Notification permissions denied');
             return null;
         }
+
+        await AsyncStorage.removeItem(NOTIFICATION_DENIED_KEY);
 
         // Step 3a: If we already have a token, reuse it but ALWAYS re-register with backend.
         // This fixes cases where the first registration failed due to network/env issues.
@@ -100,6 +107,70 @@ export async function registerForPushNotifications(): Promise<string | null> {
     } catch (error) {
         console.error('Error registering for push notifications:', error);
         return null;
+    }
+}
+
+type ReminderState = {
+    date: string;
+    count: number;
+    lastShownAt: number;
+};
+
+function todayKey(): string {
+    return new Date().toISOString().slice(0, 10);
+}
+
+async function readReminderState(): Promise<ReminderState> {
+    const fallback = { date: todayKey(), count: 0, lastShownAt: 0 };
+    try {
+        const raw = await AsyncStorage.getItem(NOTIFICATION_REMINDER_STATE_KEY);
+        if (!raw) return fallback;
+        const parsed = JSON.parse(raw) as ReminderState;
+        if (parsed.date !== fallback.date) return fallback;
+        return {
+            date: parsed.date,
+            count: Number(parsed.count) || 0,
+            lastShownAt: Number(parsed.lastShownAt) || 0,
+        };
+    } catch {
+        return fallback;
+    }
+}
+
+/**
+ * Denied users cannot receive push/local notifications, so remind them in-app.
+ */
+export async function maybeShowNotificationPermissionReminder(): Promise<void> {
+    try {
+        const denied = await AsyncStorage.getItem(NOTIFICATION_DENIED_KEY);
+        if (denied !== 'true') return;
+
+        const { status } = await Notifications.getPermissionsAsync();
+        if (status === 'granted') {
+            await AsyncStorage.removeItem(NOTIFICATION_DENIED_KEY);
+            return;
+        }
+
+        const now = Date.now();
+        const state = await readReminderState();
+        if (state.count >= MAX_DENIED_REMINDERS_PER_DAY) return;
+        if (state.lastShownAt && now - state.lastShownAt < MIN_REMINDER_INTERVAL_MS) return;
+
+        await AsyncStorage.setItem(
+            NOTIFICATION_REMINDER_STATE_KEY,
+            JSON.stringify({ date: todayKey(), count: state.count + 1, lastShownAt: now })
+        );
+
+        Alert.alert(
+            'Enable RHM Notifications',
+            'Turn on notifications to receive prophetic updates, music updates, video updates, breaking news, and more.',
+            [
+                { text: 'Later', style: 'cancel' },
+                { text: 'Open Settings', onPress: () => Linking.openSettings() },
+            ]
+        );
+    } catch (error) {
+        console.warn('Notification permission reminder failed:', error);
     }
 }
 
