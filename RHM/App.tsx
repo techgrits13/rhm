@@ -1,5 +1,5 @@
-import React, { useEffect, useRef } from 'react';
-import { AppState, AppStateStatus } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { AppState, AppStateStatus, View, ActivityIndicator } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -126,6 +126,7 @@ export default function App() {
   const navigationRef = useRef<any>(null);
   const appStateRef = useRef<AppStateStatus>(AppState.currentState);
   const backgroundedAtRef = useRef<number | null>(null);
+  const [isAppReady, setIsAppReady] = useState(false);
 
   // Initialize app services (ads only - NO notifications)
   useEffect(() => {
@@ -144,6 +145,7 @@ export default function App() {
           console.warn('⚠️ App open ad failed (non-critical):', error);
         }
       }
+      setIsAppReady(true);
     })();
   }, []);
 
@@ -242,6 +244,14 @@ export default function App() {
 
   // NOTE: Notification tap navigation is handled inside NotificationHandler
   // via the navigationRef prop. No duplicate listener needed here.
+
+  if (!isAppReady) {
+    return (
+      <View style={{ flex: 1, backgroundColor: '#6200ee', justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color="#ffffff" />
+      </View>
+    );
+  }
 
   return (
     <ErrorBoundary>

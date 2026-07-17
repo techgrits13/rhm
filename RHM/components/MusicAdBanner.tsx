@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { AD_UNITS } from '../services/ads';
+import { canRequestAds } from '../services/adsInit';
 import Constants from 'expo-constants';
 
 export default function MusicAdBanner() {
     const [lastError, setLastError] = useState<string | null>(null);
     const disableAds = !!(Constants?.expoConfig?.extra as any)?.disableAds;
 
-    if (disableAds || !AD_UNITS.banner) {
+    if (disableAds || !canRequestAds() || !AD_UNITS.banner) {
         return <View style={[styles.container, { backgroundColor: 'transparent' }]} />;
     }
 

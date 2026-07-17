@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, ScrollView } from 'react-native';
 import { Audio } from 'expo-av';
 import { useKeepAwake } from 'expo-keep-awake';
 import { Ionicons } from '@expo/vector-icons';
@@ -8,7 +8,7 @@ import { radioService } from '../services/radioService';
 import { recordingService } from '../services/recordingService';
 import { useTheme } from '../context/ThemeContext';
 import { useAudio } from '../context/AudioContext';
-import NativeAdCard from '../components/NativeAdCard';
+import InlineMrec from '../components/InlineMrec';
 
 export default function RadioScreen() {
   const { colors } = useTheme();
@@ -213,67 +213,68 @@ export default function RadioScreen() {
     recordButtonText: {
       color: '#fff',
     },
-    adWrapper: {
-      paddingVertical: 12,
-      width: '100%',
-      justifyContent: 'flex-end',
-      backgroundColor: 'transparent',
-      marginTop: 'auto', // Pushes the ad to the bottom of the screen
+    scrollContent: {
+      flexGrow: 1,
+      paddingBottom: 24,
     },
   });
 
   return (
     <View style={styles.container}>
-      <View style={styles.centerContent}>
-        <Text style={styles.stationName}>{stationName || 'Loading...'}</Text>
+      {/* Keep the MREC in the normal content flow instead of pinning it by navigation. */}
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.centerContent}>
+          <Text style={styles.stationName}>{stationName || 'Loading...'}</Text>
 
-        <TouchableOpacity style={styles.playButton} onPress={togglePlayback} disabled={!radioUrl}>
-          {isAudioLoading ? (
-            <ActivityIndicator size="large" color="#fff" />
-          ) : (
-            <Ionicons name={isPlaying ? 'pause' : 'play'} size={60} color="#fff" />
+          <TouchableOpacity style={styles.playButton} onPress={togglePlayback} disabled={!radioUrl}>
+            {isAudioLoading ? (
+              <ActivityIndicator size="large" color="#fff" />
+            ) : (
+              <Ionicons name={isPlaying ? 'pause' : 'play'} size={60} color="#fff" />
+            )}
+          </TouchableOpacity>
+
+          <Text style={styles.statusText}>
+            {isAudioLoading ? 'Connecting...' : isPlaying ? 'Now Playing' : 'Tap to Play'}
+          </Text>
+
+          {isRecording && (
+            <View style={styles.recordingIndicator}>
+              <View style={styles.recordingDot} />
+              <Text style={styles.recordingText}>
+                Recording {recordingService.formatDuration(recordingDuration)}
+              </Text>
+            </View>
           )}
-        </TouchableOpacity>
 
-        <Text style={styles.statusText}>
-          {isAudioLoading ? 'Connecting...' : isPlaying ? 'Now Playing' : 'Tap to Play'}
-        </Text>
+          <View style={styles.controlsContainer}>
+            <TouchableOpacity
+              style={[styles.controlButton, styles.recordButton, isRecording && styles.recordButtonActive]}
+              onPress={toggleRecording}
+              disabled={!isPlaying && !isRecording}
+            >
+              <Ionicons name={isRecording ? 'stop-circle' : 'radio-button-on'} size={20} color="#fff" />
+              <Text style={[styles.controlButtonText, styles.recordButtonText]}>
+                {isRecording ? 'Stop Recording' : 'Record'}
+              </Text>
+            </TouchableOpacity>
 
-        {isRecording && (
-          <View style={styles.recordingIndicator}>
-            <View style={styles.recordingDot} />
-            <Text style={styles.recordingText}>
-              Recording {recordingService.formatDuration(recordingDuration)}
-            </Text>
+            <TouchableOpacity
+              style={styles.controlButton}
+              onPress={() => (navigation as any).navigate('Recordings')}
+            >
+              <Ionicons name="folder-open-outline" size={20} color={colors.text} />
+              <Text style={styles.controlButtonText}>My Recordings</Text>
+            </TouchableOpacity>
           </View>
-        )}
-
-        <View style={styles.controlsContainer}>
-          <TouchableOpacity
-            style={[styles.controlButton, styles.recordButton, isRecording && styles.recordButtonActive]}
-            onPress={toggleRecording}
-            disabled={!isPlaying && !isRecording}
-          >
-            <Ionicons name={isRecording ? 'stop-circle' : 'radio-button-on'} size={20} color="#fff" />
-            <Text style={[styles.controlButtonText, styles.recordButtonText]}>
-              {isRecording ? 'Stop Recording' : 'Record'}
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.controlButton}
-            onPress={() => (navigation as any).navigate('Recordings')}
-          >
-            <Ionicons name="folder-open-outline" size={20} color={colors.text} />
-            <Text style={styles.controlButtonText}>My Recordings</Text>
-          </TouchableOpacity>
         </View>
-      </View>
 
-      {/* Native Ad — replaces the old banner ad */}
-      <View style={styles.adWrapper}>
-        <NativeAdCard />
-      </View>
+        {/* Inline MREC (300x250) — non-collapsible, separate ad unit for better eCPM */}
+        <InlineMrec />
+      </ScrollView>
     </View>
   );
 }

@@ -27,7 +27,7 @@ serve(async (req) => {
       // @ts-ignore
       Deno.env.get('SUPABASE_URL') ?? '',
       // @ts-ignore
-      Deno.env.get('SUPABASE_ANON_KEY') ?? ''
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? Deno.env.get('SUPABASE_ANON_KEY') ?? ''
     )
 
     console.log(`📹 Video Function active: ${req.method}`)
@@ -77,7 +77,8 @@ serve(async (req) => {
               description: item.snippet.description,
               thumbnail_url: item.snippet.thumbnails?.high?.url || item.snippet.thumbnails?.default?.url,
               published_at: item.snippet.publishedAt,
-              channel_id: channel.id
+              channel_id: channel.id,
+              channel_name: channel.name,
             }, { onConflict: 'video_id' })
             syncCount++
           }

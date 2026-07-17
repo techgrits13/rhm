@@ -101,45 +101,33 @@ serve(async (req) => {
       })
     }
 
-    const activeSince = new Date(Date.now() - ACTIVE_WINDOW_MINUTES * 60 * 1000).toISOString()
     const today = getNairobiDate()
-    const sevenDaysAgo = getNairobiDate(-6)
-    const twentyEightDaysAgo = getNairobiDate(-27)
 
     const [
-      activeNow,
-      openedToday,
-      openedSevenDays,
-      openedTwentyEightDays,
+      totalUsersResult,
+      newInstallsTodayResult,
+      dailyActiveUsersResult,
     ] = await Promise.all([
       supabaseClient
         .from('app_devices')
+        .select('device_id', { count: 'exact', head: true }),
+      supabaseClient
+        .from('app_devices')
         .select('device_id', { count: 'exact', head: true })
-        .gte('last_seen_at', activeSince),
+        .gte('first_seen_at', today),
       supabaseClient
         .from('app_daily_device_activity')
         .select('device_id', { count: 'exact', head: true })
         .eq('activity_date', today),
-      supabaseClient
-        .from('app_daily_device_activity')
-        .select('device_id')
-        .gte('activity_date', sevenDaysAgo)
-        .lte('activity_date', today),
-      supabaseClient
-        .from('app_daily_device_activity')
-        .select('device_id')
-        .gte('activity_date', twentyEightDaysAgo)
-        .lte('activity_date', today),
     ])
 
-    const firstError = [activeNow, openedToday, openedSevenDays, openedTwentyEightDays].find((result) => result.error)
+    const firstError = [totalUsersResult, newInstallsTodayResult, dailyActiveUsersResult].find((result) => result.error)
     if (firstError?.error) throw firstError.error
 
     const metrics = {
-      activeNow: activeNow.count || 0,
-      openedToday: openedToday.count || 0,
-      openedLast7Days: new Set((openedSevenDays.data || []).map((row: any) => row.device_id)).size,
-      openedLast28Days: new Set((openedTwentyEightDays.data || []).map((row: any) => row.device_id)).size,
+      totalUsers: totalUsersResult.count || 0,
+      newInstallsToday: newInstallsTodayResult.count || 0,
+      dailyActiveUsers: dailyActiveUsersResult.count || 0,
     }
 
     return new Response(JSON.stringify({

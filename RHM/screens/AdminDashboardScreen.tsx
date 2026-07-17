@@ -118,10 +118,9 @@ export default function AdminDashboardScreen({ navigation }: any) {
 function AnalyticsTab() {
     const [loading, setLoading] = React.useState(true);
     const [metrics, setMetrics] = React.useState({
-        activeNow: 0,
-        openedToday: 0,
-        openedLast7Days: 0,
-        openedLast28Days: 0,
+        totalUsers: 0,
+        newInstallsToday: 0,
+        dailyActiveUsers: 0,
     });
     const [activeWindowMinutes, setActiveWindowMinutes] = React.useState(5);
     const [errorMessage, setErrorMessage] = React.useState('');
@@ -137,7 +136,7 @@ function AnalyticsTab() {
                 },
                 metadata: { suppressErrorLog: true },
             });
-            setMetrics(response.data?.metrics || { activeNow: 0, openedToday: 0, openedLast7Days: 0, openedLast28Days: 0 });
+            setMetrics(response.data?.metrics || { totalUsers: 0, newInstallsToday: 0, dailyActiveUsers: 0 });
             setActiveWindowMinutes(response.data?.windows?.activeMinutes || 5);
         } catch (error: any) {
             const status = error?.response?.status;
@@ -174,10 +173,9 @@ function AnalyticsTab() {
                 <ActivityIndicator size="large" color="#6200ee" style={{ marginTop: 40 }} />
             ) : (
                 <View style={styles.analyticsGrid}>
-                    <MetricCard label="Active now" value={metrics.activeNow} helper={`Last ${activeWindowMinutes} min`} icon="pulse" />
-                    <MetricCard label="Opened today" value={metrics.openedToday} helper="Today so far" icon="today" />
-                    <MetricCard label="Last 7 days" value={metrics.openedLast7Days} helper="Unique devices" icon="calendar" />
-                    <MetricCard label="Last 28 days" value={metrics.openedLast28Days} helper="Unique devices" icon="calendar-outline" />
+                    <MetricCard label="Total Users" value={metrics.totalUsers} helper="All unique devices" icon="people" />
+                    <MetricCard label="New Installs" value={metrics.newInstallsToday} helper="Installs today" icon="person-add" />
+                    <MetricCard label="Daily Active" value={metrics.dailyActiveUsers} helper="Active today" icon="today" />
                 </View>
             )}
 
@@ -188,7 +186,7 @@ function AnalyticsTab() {
                 </View>
             )}
 
-            {!errorMessage && !loading && metrics.openedToday === 0 && (
+            {!errorMessage && !loading && metrics.totalUsers === 0 && (
                 <View style={styles.analyticsInfoBox}>
                     <Ionicons name="information-circle-outline" size={18} color="#1565c0" />
                     <Text style={styles.analyticsInfoText}>

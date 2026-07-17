@@ -38,6 +38,28 @@ export default function AboutScreen() {
     }
   };
 
+  const openAdPrivacyChoices = async () => {
+    try {
+      // The Google UMP SDK only presents this when AdMob has configured a
+      // privacy-options entry point for the current user/region.
+      const { AdsConsent } = require('react-native-google-mobile-ads');
+      const consentInfo = await AdsConsent.getConsentInfo();
+      if (consentInfo.privacyOptionsRequirementStatus !== 'REQUIRED') {
+        Alert.alert(
+          'Ad privacy choices',
+          'Ad privacy options are not currently required for this device.',
+        );
+        return;
+      }
+      await AdsConsent.showPrivacyOptionsForm();
+    } catch {
+      Alert.alert(
+        'Ad privacy choices',
+        'Ad privacy options are not currently required for this device.',
+      );
+    }
+  };
+
   const handleIconTap = () => {
     const newCount = tapCount + 1;
     setTapCount(newCount);
@@ -286,6 +308,11 @@ export default function AboutScreen() {
           >
             <Ionicons name="shield-checkmark" size={24} color={colors.primary} />
             <Text style={styles.linkText}>Privacy Policy</Text>
+            <Ionicons name="chevron-forward" size={20} color={colors.placeholder} />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.linkItem} onPress={openAdPrivacyChoices}>
+            <Ionicons name="options-outline" size={24} color={colors.primary} />
+            <Text style={styles.linkText}>Ad Privacy Choices</Text>
             <Ionicons name="chevron-forward" size={20} color={colors.placeholder} />
           </TouchableOpacity>
           <TouchableOpacity

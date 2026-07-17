@@ -1,17 +1,21 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, Platform } from 'react-native';
 import { AD_UNITS } from '../services/ads';
+import { canRequestAds } from '../services/adsInit';
 import Constants from 'expo-constants';
 
 interface AdBannerProps {
   style?: any;
+  unitIdKey?: 'banner' | 'radioBanner';
 }
 
-export default function AdBanner({ style }: AdBannerProps) {
+export default function AdBanner({ style, unitIdKey = 'banner' }: AdBannerProps) {
   const [lastError, setLastError] = useState<string | null>(null);
   const disableAds = !!(Constants?.expoConfig?.extra as any)?.disableAds;
 
-  if (disableAds || !AD_UNITS.banner) {
+  const adUnitId = AD_UNITS[unitIdKey];
+
+  if (disableAds || !canRequestAds() || !adUnitId) {
     // Return a placeholder view to maintain layout stability
     return <View style={[styles.container, style, { backgroundColor: 'transparent' }]} />;
   }
@@ -30,7 +34,7 @@ export default function AdBanner({ style }: AdBannerProps) {
   return (
     <View style={[styles.container, style]}>
       <BannerAd
-        unitId={AD_UNITS.banner}
+        unitId={adUnitId}
         size={BannerAdSize.ANCHORED_ADAPTIVE_BANNER}
         requestOptions={{
           requestNonPersonalizedAdsOnly: false,

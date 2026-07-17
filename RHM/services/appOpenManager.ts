@@ -1,12 +1,14 @@
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { APP_OPEN_AD_UNIT_ID } from './ads';
+import { canRequestAds } from './adsInit';
 import Constants from 'expo-constants';
 import { safeGetJson } from '../utils/safeStorage';
 
 const STORAGE_KEY = '@ads_app_open_stats';
 const DAILY_LIMIT = 8;
 export const APP_OPEN_MIN_INTERVAL_MS = 60 * 60 * 1000;
+const APP_OPEN_LOAD_TIMEOUT_MS = 15 * 1000;
 
 type Stats = {
   lastShownAt?: number;
@@ -24,6 +26,7 @@ async function canShow(): Promise<boolean> {
   if (Platform.OS !== 'android') return false;
   const disableAds = !!(Constants?.expoConfig?.extra as any)?.disableAds;
   if (disableAds) return false;
+  if (!canRequestAds()) return false;
   if (!APP_OPEN_AD_UNIT_ID) return false;
 
   const stats = await safeGetJson<Stats>(STORAGE_KEY, {});
@@ -60,6 +63,25 @@ export async function showAppOpenAdIfEligible(): Promise<boolean> {
 
   return new Promise<boolean>((resolve) => {
     loading = true;
+    let settled = false;
+    let didOpen = false;
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    let unsubscribeLoaded: (() => void) | undefined;
+    let unsubscribeError: (() => void) | undefined;
+    let unsubscribeOpened: (() => void) | undefined;
+    let unsubscribeClosed: (() => void) | undefined;
+
+    const finish = (shown: boolean) => {
+      if (settled) return;
+      settled = true;
+      loading = false;
+      if (timeout) clearTimeout(timeout);
+      unsubscribeLoaded?.();
+      unsubscribeError?.();
+      unsubscribeOpened?.();
+      unsubscribeClosed?.();
+      resolve(shown);
+    };
 
     // Dynamic import to avoid crash in Expo Go
     let AppOpenAd: any;
@@ -69,8 +91,7 @@ export async function showAppOpenAdIfEligible(): Promise<boolean> {
       AppOpenAd = mod.AppOpenAd;
       AdEventType = mod.AdEventType;
     } catch (e) {
-      resolve(false);
-      loading = false;
+      finish(false);
       return;
     }
 
@@ -78,34 +99,35 @@ export async function showAppOpenAdIfEligible(): Promise<boolean> {
       requestNonPersonalizedAdsOnly: false,
     });
 
-    const onLoaded = ad.addAdEventListener(AdEventType.LOADED, async () => {
+    unsubscribeLoaded = ad.addAdEventListener(AdEventType.LOADED, () => {
+      if (timeout) {
+        clearTimeout(timeout);
+        timeout = undefined;
+      }
       try {
-        await ad.show();
-        await recordShown();
-        resolve(true);
+        const result = ad.show();
+        if (result?.catch) result.catch(() => finish(false));
       } catch {
-        resolve(false);
-      } finally {
-        cleanup();
+        finish(false);
       }
     });
 
-    const onError = ad.addAdEventListener(AdEventType.ERROR, () => {
-      cleanup();
-      resolve(false);
+    unsubscribeOpened = ad.addAdEventListener(AdEventType.OPENED, () => {
+      if (didOpen) return;
+      didOpen = true;
+      recordShown().catch(() => undefined);
     });
 
-    function cleanup() {
-      loading = false;
-      if (onLoaded) onLoaded(); // Check if function because dynamic
-      if (onError) onError();
-    }
+    unsubscribeClosed = ad.addAdEventListener(AdEventType.CLOSED, () => finish(didOpen));
+    unsubscribeError = ad.addAdEventListener(AdEventType.ERROR, () => finish(false));
+
+    // A lost SDK callback must never permanently block future foreground ads.
+    timeout = setTimeout(() => finish(didOpen), APP_OPEN_LOAD_TIMEOUT_MS);
 
     try {
       ad.load();
     } catch {
-      cleanup();
-      resolve(false);
+      finish(false);
     }
   });
 }
