@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { AppState, AppStateStatus, View, ActivityIndicator } from 'react-native';
+import { AppState, AppStateStatus, View, ActivityIndicator, Image, StyleSheet, Text } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -247,8 +247,23 @@ export default function App() {
 
   if (!isAppReady) {
     return (
-      <View style={{ flex: 1, backgroundColor: '#6200ee', justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator size="large" color="#ffffff" />
+      <View style={styles.loadingScreen}>
+        <StatusBar style="dark" />
+        <View style={styles.loadingBrand}>
+          <View style={styles.logoShell}>
+            <Image
+              source={require('./assets/adaptive-icon.png')}
+              style={styles.loadingLogo}
+              accessibilityLabel="RHM logo"
+            />
+          </View>
+          <Text style={styles.loadingTitle}>RHM</Text>
+          <Text style={styles.loadingSubtitle}>Restoring hope, one moment at a time</Text>
+        </View>
+        <View style={styles.loadingStatus}>
+          <ActivityIndicator size="small" color="#6200ee" />
+          <Text style={styles.loadingText}>Preparing your experience…</Text>
+        </View>
       </View>
     );
   }
@@ -324,3 +339,66 @@ export default function App() {
     </ErrorBoundary>
   );
 }
+
+const styles = StyleSheet.create({
+  loadingScreen: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 88,
+    paddingHorizontal: 32,
+    backgroundColor: '#FAF8FF',
+  },
+  loadingBrand: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  logoShell: {
+    width: 112,
+    height: 112,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 24,
+    borderRadius: 32,
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#3B1677',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.12,
+    shadowRadius: 20,
+    elevation: 7,
+  },
+  loadingLogo: {
+    width: 84,
+    height: 84,
+    resizeMode: 'contain',
+  },
+  loadingTitle: {
+    color: '#24103F',
+    fontSize: 32,
+    fontWeight: '800',
+    letterSpacing: 1.2,
+  },
+  loadingSubtitle: {
+    maxWidth: 260,
+    marginTop: 8,
+    color: '#6C5A82',
+    fontSize: 15,
+    lineHeight: 22,
+    textAlign: 'center',
+  },
+  loadingStatus: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 14,
+    backgroundColor: '#F0EAFE',
+  },
+  loadingText: {
+    marginLeft: 10,
+    color: '#513075',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+});
