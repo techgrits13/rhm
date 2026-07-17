@@ -258,7 +258,7 @@ export default function App() {
             />
           </View>
           <Text style={styles.loadingTitle}>RHM</Text>
-          <Text style={styles.loadingSubtitle}>Restoring hope, one moment at a time</Text>
+          <Text style={styles.loadingSubtitle}>Prepare the way, the Messiah is calling</Text>
         </View>
         <View style={styles.loadingStatus}>
           <ActivityIndicator size="small" color="#6200ee" />
