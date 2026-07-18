@@ -119,7 +119,9 @@ function AnalyticsTab() {
     const [loading, setLoading] = React.useState(true);
     const [metrics, setMetrics] = React.useState({
         totalUsers: 0,
+        newInstallsThisMonth: 0,
         newInstallsToday: 0,
+        activeNow: 0,
         dailyActiveUsers: 0,
     });
     const [activeWindowMinutes, setActiveWindowMinutes] = React.useState(5);
@@ -136,7 +138,7 @@ function AnalyticsTab() {
                 },
                 metadata: { suppressErrorLog: true },
             });
-            setMetrics(response.data?.metrics || { totalUsers: 0, newInstallsToday: 0, dailyActiveUsers: 0 });
+            setMetrics(response.data?.metrics || { totalUsers: 0, newInstallsThisMonth: 0, newInstallsToday: 0, activeNow: 0, dailyActiveUsers: 0 });
             setActiveWindowMinutes(response.data?.windows?.activeMinutes || 5);
         } catch (error: any) {
             const status = error?.response?.status;
@@ -174,7 +176,9 @@ function AnalyticsTab() {
             ) : (
                 <View style={styles.analyticsGrid}>
                     <MetricCard label="Total Users" value={metrics.totalUsers} helper="All unique devices" icon="people" />
-                    <MetricCard label="New Installs" value={metrics.newInstallsToday} helper="Installs today" icon="person-add" />
+                    <MetricCard label="New Installs" value={metrics.newInstallsThisMonth} helper="This month" icon="person-add" />
+                    <MetricCard label="New Installs Today" value={metrics.newInstallsToday} helper="First opened today" icon="person-add-outline" />
+                    <MetricCard label="Active Now" value={metrics.activeNow} helper={`Seen in the last ${activeWindowMinutes} minutes`} icon="pulse" />
                     <MetricCard label="Daily Active" value={metrics.dailyActiveUsers} helper="Active today" icon="today" />
                 </View>
             )}
@@ -756,6 +760,8 @@ function PushAlertsTab() {
     ];
 
     const templates = [
+        { label: 'BE ON STANDBY', title: 'BE ON STANDBY', body: 'The Mega Prophets of the lord will be live on air' },
+        { label: 'Tune In', title: 'tune in', body: 'any minute from now the mega prophets of the lord will be live' },
         { label: '☀️ Morning Service', title: '☀️ Morning Service', body: 'Join us live for our powerful morning service starting now!' },
         { label: '🙏 Special Prayer', title: '🙏 Special Prayer Night', body: 'A special prayer session is happening right now. Tap to join us.' },
         { label: '🎶 New Music', title: '🎶 New Worship Track', body: 'A brand new worship song has just been added. Come listen!' },

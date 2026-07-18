@@ -176,6 +176,16 @@
                   <div class="muted">Seen in the last <%= (analytics && analytics.activeWindowMinutes) || 5 %> minutes</div>
                 </div>
                 <div class="stat">
+                  <div class="stat-value"><%= (analytics && analytics.newInstallsThisMonth) || 0 %></div>
+                  <div class="stat-label">New installs</div>
+                  <div class="muted">First opened this month</div>
+                </div>
+                <div class="stat">
+                  <div class="stat-value"><%= (analytics && analytics.newInstallsToday) || 0 %></div>
+                  <div class="stat-label">New installs today</div>
+                  <div class="muted">First opened today</div>
+                </div>
+                <div class="stat">
                   <div class="stat-value"><%= (analytics && analytics.openedToday) || 0 %></div>
                   <div class="stat-label">Opened today</div>
                   <div class="muted">Africa/Nairobi day</div>
@@ -254,6 +264,10 @@
                 <input type="text" name="title" placeholder="New Sermon Available!" required />
                 <label>Notification Body</label>
                 <input type="text" name="body" placeholder="Check out our latest sermon..." required />
+                <div class="row" style="margin-top:10px">
+                  <button class="btn secondary" type="button" onclick="applyNotificationTemplate('BE ON STANDBY', 'The Mega Prophets of the lord will be live on air')">BE ON STANDBY</button>
+                  <button class="btn secondary" type="button" onclick="applyNotificationTemplate('tune in', 'any minute from now the mega prophets of the lord will be live')">Tune In</button>
+                </div>
                 <div style="margin-top:10px"><button class="btn secondary" type="submit">Send to All Users</button>
                 </div>
                 <div class="muted" style="margin-top:8px">Sends push notification to all registered devices</div>
@@ -425,6 +439,12 @@
               </form>
             </div>
   </main>
+  <script>
+    function applyNotificationTemplate(title, body) {
+      document.querySelector('input[name="title"]').value = title;
+      document.querySelector('input[name="body"]').value = body;
+    }
+  </script>
 </body>
 
 </html>

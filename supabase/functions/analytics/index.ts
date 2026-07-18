@@ -19,6 +19,10 @@ function getNairobiDate(offsetDays = 0) {
   return nairobiTime.toISOString().split('T')[0];
 }
 
+function getNairobiMonthStart() {
+  return `${getNairobiDate().slice(0, 7)}-01T00:00:00+03:00`;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -105,7 +109,9 @@ serve(async (req) => {
 
     const [
       totalUsersResult,
+      newInstallsThisMonthResult,
       newInstallsTodayResult,
+      activeNowResult,
       dailyActiveUsersResult,
     ] = await Promise.all([
       supabaseClient
@@ -114,19 +120,29 @@ serve(async (req) => {
       supabaseClient
         .from('app_devices')
         .select('device_id', { count: 'exact', head: true })
-        .gte('first_seen_at', today),
+        .gte('first_seen_at', getNairobiMonthStart()),
+      supabaseClient
+        .from('app_devices')
+        .select('device_id', { count: 'exact', head: true })
+        .gte('first_seen_at', `${today}T00:00:00+03:00`),
+      supabaseClient
+        .from('app_devices')
+        .select('device_id', { count: 'exact', head: true })
+        .gte('last_seen_at', new Date(Date.now() - ACTIVE_WINDOW_MINUTES * 60 * 1000).toISOString()),
       supabaseClient
         .from('app_daily_device_activity')
         .select('device_id', { count: 'exact', head: true })
         .eq('activity_date', today),
     ])
 
-    const firstError = [totalUsersResult, newInstallsTodayResult, dailyActiveUsersResult].find((result) => result.error)
+    const firstError = [totalUsersResult, newInstallsThisMonthResult, newInstallsTodayResult, activeNowResult, dailyActiveUsersResult].find((result) => result.error)
     if (firstError?.error) throw firstError.error
 
     const metrics = {
       totalUsers: totalUsersResult.count || 0,
+      newInstallsThisMonth: newInstallsThisMonthResult.count || 0,
       newInstallsToday: newInstallsTodayResult.count || 0,
+      activeNow: activeNowResult.count || 0,
       dailyActiveUsers: dailyActiveUsersResult.count || 0,
     }
 

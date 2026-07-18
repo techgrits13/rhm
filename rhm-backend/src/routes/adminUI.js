@@ -29,13 +29,18 @@ function getNairobiDate(offsetDays = 0) {
   return formatter.format(date);
 }
 
+function getNairobiMonthStart() {
+  return `${getNairobiDate().slice(0, 7)}-01T00:00:00+03:00`;
+}
+
 async function getAnalyticsSummary() {
   const activeSince = new Date(Date.now() - ACTIVE_WINDOW_MINUTES * 60 * 1000).toISOString();
   const today = getNairobiDate();
   const sevenDaysAgo = getNairobiDate(-6);
   const twentyEightDaysAgo = getNairobiDate(-27);
+  const monthStart = getNairobiMonthStart();
 
-  const [activeNow, openedToday, openedSevenDays, openedTwentyEightDays] = await Promise.all([
+  const [activeNow, openedToday, openedSevenDays, openedTwentyEightDays, newInstallsThisMonth, newInstallsToday] = await Promise.all([
     supabase
       .from('app_devices')
       .select('device_id', { count: 'exact', head: true })
@@ -54,13 +59,23 @@ async function getAnalyticsSummary() {
       .select('device_id')
       .gte('activity_date', twentyEightDaysAgo)
       .lte('activity_date', today),
+    supabase
+      .from('app_devices')
+      .select('device_id', { count: 'exact', head: true })
+      .gte('first_seen_at', monthStart),
+    supabase
+      .from('app_devices')
+      .select('device_id', { count: 'exact', head: true })
+      .gte('first_seen_at', `${today}T00:00:00+03:00`),
   ]);
 
-  const firstError = [activeNow, openedToday, openedSevenDays, openedTwentyEightDays].find((result) => result.error);
+  const firstError = [activeNow, openedToday, openedSevenDays, openedTwentyEightDays, newInstallsThisMonth, newInstallsToday].find((result) => result.error);
   if (firstError?.error) throw firstError.error;
 
   return {
     activeNow: activeNow.count || 0,
+    newInstallsThisMonth: newInstallsThisMonth.count || 0,
+    newInstallsToday: newInstallsToday.count || 0,
     openedToday: openedToday.count || 0,
     openedLast7Days: new Set((openedSevenDays.data || []).map((row) => row.device_id)).size,
     openedLast28Days: new Set((openedTwentyEightDays.data || []).map((row) => row.device_id)).size,
@@ -167,6 +182,8 @@ router.get('/', async (req, res) => {
 
     let analytics = {
       activeNow: 0,
+      newInstallsThisMonth: 0,
+      newInstallsToday: 0,
       openedToday: 0,
       openedLast7Days: 0,
       openedLast28Days: 0,

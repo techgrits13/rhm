@@ -17,6 +17,10 @@ function getNairobiDate(offsetDays = 0) {
   return formatter.format(date);
 }
 
+function getNairobiMonthStart() {
+  return `${getNairobiDate().slice(0, 7)}-01T00:00:00+03:00`;
+}
+
 function sanitizeDeviceId(deviceId) {
   if (!deviceId || typeof deviceId !== 'string') return '';
   return deviceId.trim().slice(0, 120);
@@ -95,12 +99,15 @@ router.get('/summary', requireAdminSummary, async (_req, res) => {
     const today = getNairobiDate();
     const sevenDaysAgo = getNairobiDate(-6);
     const twentyEightDaysAgo = getNairobiDate(-27);
+    const monthStart = getNairobiMonthStart();
 
     const [
       activeNow,
       openedToday,
       openedSevenDays,
       openedTwentyEightDays,
+      newInstallsThisMonth,
+      newInstallsToday,
     ] = await Promise.all([
       supabase
         .from('app_devices')
@@ -120,9 +127,17 @@ router.get('/summary', requireAdminSummary, async (_req, res) => {
         .select('device_id')
         .gte('activity_date', twentyEightDaysAgo)
         .lte('activity_date', today),
+      supabase
+        .from('app_devices')
+        .select('device_id', { count: 'exact', head: true })
+        .gte('first_seen_at', monthStart),
+      supabase
+        .from('app_devices')
+        .select('device_id', { count: 'exact', head: true })
+        .gte('first_seen_at', `${today}T00:00:00+03:00`),
     ]);
 
-    const firstError = [activeNow, openedToday, openedSevenDays, openedTwentyEightDays].find((result) => result.error);
+    const firstError = [activeNow, openedToday, openedSevenDays, openedTwentyEightDays, newInstallsThisMonth, newInstallsToday].find((result) => result.error);
     if (firstError?.error) throw firstError.error;
 
     res.json({
@@ -133,9 +148,12 @@ router.get('/summary', requireAdminSummary, async (_req, res) => {
         today,
         sevenDaysFrom: sevenDaysAgo,
         twentyEightDaysFrom: twentyEightDaysAgo,
+        monthStart,
       },
       metrics: {
         activeNow: activeNow.count || 0,
+        newInstallsThisMonth: newInstallsThisMonth.count || 0,
+        newInstallsToday: newInstallsToday.count || 0,
         openedToday: openedToday.count || 0,
         openedLast7Days: new Set((openedSevenDays.data || []).map((row) => row.device_id)).size,
         openedLast28Days: new Set((openedTwentyEightDays.data || []).map((row) => row.device_id)).size,
