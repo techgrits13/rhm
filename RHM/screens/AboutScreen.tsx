@@ -304,7 +304,7 @@ export default function AboutScreen() {
         <View style={styles.section}>
           <TouchableOpacity
             style={styles.linkItem}
-            onPress={() => openLink('https://docs.google.com/spreadsheets/d/1bGZlm0IK-RmV4uoLpdevQ-kYy7eLW0vAvYN8jVMZkYU/edit?usp=sharing')}
+            onPress={() => openLink('https://docs.google.com/document/d/1k2Jivc-ZzOoNaKm2LOcJPfn61SSn-LiCgeRZCuWwoCY/edit?usp=sharing')}
           >
             <Ionicons name="shield-checkmark" size={24} color={colors.primary} />
             <Text style={styles.linkText}>Privacy Policy</Text>

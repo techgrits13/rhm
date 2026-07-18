@@ -9,6 +9,7 @@ import {
   RefreshControl,
   ActivityIndicator,
   Linking,
+  Share,
   Modal,
   TextInput,
   TouchableWithoutFeedback
@@ -86,6 +87,18 @@ export default function HomeScreen() {
       }
     } catch (error) {
       console.error('Failed to open video:', error);
+    }
+  };
+
+  const shareApp = async () => {
+    try {
+      await Share.share({
+        message:
+          'Install the Repentance app for free\nhttps://play.google.com/store/apps/details?id=com.rhm.app&pcampaignid=web_share',
+        title: 'Install the Repentance app',
+      });
+    } catch (error) {
+      console.error('Failed to share app:', error);
     }
   };
 
@@ -268,6 +281,22 @@ export default function HomeScreen() {
                 <View>
                   <Text style={styles.menuText}>Worship Songs 🎵</Text>
                   <Text style={styles.menuSubtext}>Listen to latest uploads</Text>
+                </View>
+              </TouchableOpacity>
+
+              <View style={styles.menuDivider} />
+
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={() => {
+                  setMenuVisible(false);
+                  shareApp();
+                }}
+              >
+                <Ionicons name="share-social" size={24} color="#6200ee" />
+                <View>
+                  <Text style={styles.menuText}>Share App</Text>
+                  <Text style={styles.menuSubtext}>Invite friends to install</Text>
                 </View>
               </TouchableOpacity>
             </View>
