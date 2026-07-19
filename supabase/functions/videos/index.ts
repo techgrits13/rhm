@@ -71,15 +71,20 @@ serve(async (req) => {
             const videoId = item.contentDetails?.videoId || item.snippet?.resourceId?.videoId;
             if (!videoId) continue;
             
-            await supabaseClient.from('videos').upsert({
+            // Keep this payload aligned with the deployed `videos` table.  In
+            // particular, `channel_name` is not a column in that table; sending
+            // it makes Supabase reject the entire upsert.
+            const { error: upsertError } = await supabaseClient.from('videos').upsert({
               video_id: videoId,
               title: item.snippet.title,
               description: item.snippet.description,
               thumbnail_url: item.snippet.thumbnails?.high?.url || item.snippet.thumbnails?.default?.url,
               published_at: item.snippet.publishedAt,
               channel_id: channel.id,
-              channel_name: channel.name,
             }, { onConflict: 'video_id' })
+            if (upsertError) {
+              throw new Error(`Could not save ${videoId}: ${upsertError.message}`)
+            }
             syncCount++
           }
         } catch (err) {

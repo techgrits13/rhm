@@ -1,31 +1,30 @@
--- RUN THIS IN SUPABASE SQL EDITOR
--- 1. Enable extensions
+-- Run this entire file in Supabase Dashboard > SQL Editor.
+--
+-- Before running, replace the two placeholders below with the values from
+-- Supabase project secrets. Do not commit real keys or secrets to Git.
+
 CREATE EXTENSION IF NOT EXISTS pg_cron;
 CREATE EXTENSION IF NOT EXISTS pg_net;
 
--- 2. Safely unschedule existing job if it exists
-DO $$
-BEGIN
-  PERFORM cron.unschedule('sync-youtube-videos');
-EXCEPTION
-  WHEN OTHERS THEN
-    -- If job doesn't exist or other error, just ignore and continue
-    NULL;
-END $$;
+-- Replace a previous schedule, if one exists. This is safe when no previous
+-- schedule exists because the query simply returns no rows.
+SELECT cron.unschedule(jobid)
+FROM cron.job
+WHERE jobname = 'sync-youtube-videos';
 
--- 3. Schedule the YouTube sync every 2 hours
+-- Schedule the YouTube sync every two hours.
+-- Replace SUPABASE_SERVICE_ROLE_KEY and VIDEO_SYNC_SECRET before executing.
 SELECT cron.schedule(
   'sync-youtube-videos',
   '0 */2 * * *',
   $$
-  SELECT
-    net.http_post(
-      url:='https://tlcerhzcnhhzqbocmjsd.supabase.co/functions/v1/videos',
-      headers:='{"Content-Type": "application/json", "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRsY2VyaHpjbmhoenFib2NtanNkIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzQwNTk2OSwiZXhwIjoyMDkyOTgxOTY5fQ.2Dsr2EMYUVw8x38mGksg4Q-bw1oemHXx-aaGF1fO0Is", "x-video-sync-secret": "rhm_video_sync_secret_2026"}'::jsonb,
-      body:='{}'::jsonb
-    ) as request_id;
+  SELECT net.http_post(
+    url := 'https://tlcerhzcnhhzqbocmjsd.supabase.co/functions/v1/videos',
+    headers := '{"Content-Type":"application/json","Authorization":"Bearer SUPABASE_SERVICE_ROLE_KEY","x-video-sync-secret":"VIDEO_SYNC_SECRET"}'::jsonb,
+    body := '{}'::jsonb
+  );
   $$
 );
 
--- 4. Verify
+-- Verify that the job exists.
 SELECT * FROM cron.job;
