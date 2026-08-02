@@ -11,6 +11,18 @@ export const CHURCH_CHANNELS = [
   { id: 'UCuJUQh03Zub62Vv8uZd9SWA', handle: '@kayolemainworshipchannel', name: 'Kayole Main Altar' },
   { id: 'UCoEYFha5gALQXSY0dBKCncw', handle: '@thecitymegachurch', name: 'The City Megachurch' },
   { id: 'UC1Ej2mG1R8L4R2c1I7Sqq4A', handle: '@repentancechannel1', name: 'Repentance Channel 1' },
+  { id: 'UCL6_2_zmkrZgcYS0o-E4MLA', handle: '@uasingishumainaltartvplus', name: 'Uasin Gishu Main Altar TV Plus' },
+  { id: 'UCOSnwtYOYvsiiRBeJjZznLA', handle: '@kerichomainaltarcbd', name: 'Kericho Main Altar CBD' },
+  { id: 'UCm4Mz20QVwAEA3VIWC0J-vA', handle: '@repentanceandholinesseu', name: 'Repentance and Holiness EU' },
+  { id: 'UCD634gV6zvx5otUJtrREpIw', handle: '@kariobangichurch', name: 'Kariobangi Church' },
+  { id: 'UC_0r2sAHfsejNftrP7jTJxw', handle: '@bometmainaltartv', name: 'Bomet Main Altar TV' },
+  { id: 'UC3q-kl9W7enad4cP_kBwlUA', handle: '@manyattamainaltar-narok9111', name: 'Manyatta Main Altar Narok' },
+  { id: 'UCwQ1VVyHo4TTG_SSEbxPwyg', handle: '@kisiimainaltar2', name: 'Kisii Main Altar' },
+  { id: 'UCWV5jTOCKynFvuENUX-dSOQ', handle: '@kamulualtar', name: 'Kamulu Altar' },
+  { id: 'UCGsOIUep2GfVvS9lTv9cCRg', handle: '@utawala_altar', name: 'Utawala Altar' },
+  { id: 'UCK1fHgeh1u_DufPS-9o5b-Q', handle: '@mrhgulumainaltar', name: 'MRH Gulu Main Altar' },
+  { id: 'UC4MLxW0jN2pyDd9hre6kR5g', handle: '@machakoschurch', name: 'Machakos Church' },
+  { id: 'UCsZcWTLHYh7jJ4b8WIgkg3A', handle: '@kakamega_main_altar', name: 'Kakamega Main Altar' },
 ];
 
 /**

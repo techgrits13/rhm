@@ -7,7 +7,53 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
 
+import { config } from '../config.js';
+import { getSessionToken, resetAttempts, recordFailedAttempt, isRateLimited } from '../middleware/adminAuth.js';
+
 const router = express.Router();
+
+// GET /admin-ui/login - Login Page
+router.get('/login', (req, res) => {
+  res.render('login', {
+    message: req.query.message || '',
+    error: req.query.error || '',
+  });
+});
+
+// POST /admin-ui/login - Handle Login Form
+router.post('/login', (req, res) => {
+  const ip = req.ip || req.connection?.remoteAddress || 'unknown';
+  const { username, password } = req.body;
+
+  if (isRateLimited(ip)) {
+    return res.render('login', {
+      error: 'Too many failed attempts. Please try again later.',
+      message: '',
+    });
+  }
+
+  const expectedUser = config.adminUsername || 'esir';
+  const expectedPass = config.adminPassword || '12822Esir@#';
+
+  if (username === expectedUser && password === expectedPass) {
+    resetAttempts(ip);
+    const token = getSessionToken();
+    res.setHeader('Set-Cookie', `admin_session=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Lax`);
+    return res.redirect('/admin-ui');
+  }
+
+  recordFailedAttempt(ip);
+  return res.render('login', {
+    error: 'Invalid username or password',
+    message: '',
+  });
+});
+
+// GET /admin-ui/logout - Handle Logout
+router.get('/logout', (req, res) => {
+  res.setHeader('Set-Cookie', `admin_session=; Path=/; HttpOnly; Expires=Thu, 01 Jan 1970 00:00:00 GMT`);
+  return res.redirect('/admin-ui/login?message=' + encodeURIComponent('You have been logged out.'));
+});
 
 // Security constants
 const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
@@ -174,11 +220,12 @@ router.get('/', async (req, res) => {
 
 
 
-    const { data: settings } = await supabase
+    const { data: settingsList } = await supabase
       .from('app_settings')
       .select('*')
-      .limit(1)
-      .single();
+      .limit(1);
+
+    const settings = settingsList && settingsList.length > 0 ? settingsList[0] : null;
 
     let analytics = {
       activeNow: 0,
@@ -385,11 +432,12 @@ router.post('/settings', async (req, res) => {
     }
 
     // Find existing
-    const { data: existing } = await supabase
+    const { data: existingList } = await supabase
       .from('app_settings')
       .select('id')
-      .limit(1)
-      .single();
+      .limit(1);
+
+    const existing = existingList && existingList.length > 0 ? existingList[0] : null;
 
     let result;
     const updateData = {
@@ -403,19 +451,18 @@ router.post('/settings', async (req, res) => {
         .from('app_settings')
         .update(updateData)
         .eq('id', existing.id)
-        .select()
-        .single();
+        .select();
     } else {
       result = await supabase
         .from('app_settings')
         .insert([updateData])
-        .select()
-        .single();
+        .select();
     }
     if (result.error) throw result.error;
 
     res.redirect('/admin-ui?message=' + encodeURIComponent('Settings updated'));
   } catch (err) {
+    console.error('❌ Settings update error:', err);
     res.redirect('/admin-ui?error=' + encodeURIComponent(err.message || 'Settings update failed'));
   }
 });

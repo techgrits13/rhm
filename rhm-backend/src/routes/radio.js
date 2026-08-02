@@ -7,12 +7,13 @@ const router = express.Router();
 router.get('/stream', async (req, res) => {
   try {
     // First, try to get radio URL from app_settings table
-    const { data: settings } = await supabase
+    const { data: settingsList } = await supabase
       .from('app_settings')
       .select('radio_url')
-      .single();
+      .limit(1);
 
-    const radioUrl = settings?.radio_url || 'https://s3.radio.co/s97f38db97/listen';
+    const settings = settingsList && settingsList.length > 0 ? settingsList[0] : null;
+    const radioUrl = settings?.radio_url || 'https://jesusislordradio.info:8443/stream';
 
     res.json({
       success: true,

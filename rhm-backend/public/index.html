@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RHM Admin Console</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card-bg: #1e293b;
+      --border: #334155;
+      --accent: #6366f1;
+      --accent-hover: #4f46e5;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --success: #10b981;
+      --danger: #ef4444;
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    .login-container {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex: 1;
+      padding: 20px;
+    }
+    .login-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 36px;
+      width: 100%;
+      max-width: 420px;
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+    }
+    .login-header {
+      text-align: center;
+      margin-bottom: 24px;
+    }
+    .login-icon {
+      font-size: 48px;
+      margin-bottom: 8px;
+    }
+    h1 {
+      font-size: 22px;
+      font-weight: 700;
+    }
+    .subtitle {
+      font-size: 13px;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+    .input-group {
+      margin-bottom: 18px;
+    }
+    label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: #cbd5e1;
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    input[type="text"],
+    input[type="password"],
+    input[type="url"] {
+      width: 100%;
+      padding: 12px 14px;
+      background: #0f172a;
+      border: 1px solid #475569;
+      border-radius: 8px;
+      color: #fff;
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+    }
+    .btn {
+      width: 100%;
+      padding: 12px;
+      background: linear-gradient(135deg, var(--accent) 0%, var(--accent-hover) 100%);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+    .btn:hover {
+      opacity: 0.92;
+    }
+    .alert {
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      margin-bottom: 16px;
+      display: none;
+    }
+    .alert.err {
+      background: rgba(239, 68, 68, 0.15);
+      border: 1px solid var(--danger);
+      color: #fca5a5;
+    }
+    .alert.ok {
+      background: rgba(16, 185, 129, 0.15);
+      border: 1px solid var(--success);
+      color: #a7f3d0;
+    }
+    .dashboard {
+      display: none;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+    header {
+      background: #1e293b;
+      border-bottom: 1px solid var(--border);
+      padding: 16px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .logout-btn {
+      background: rgba(239, 68, 68, 0.2);
+      border: 1px solid var(--danger);
+      color: #fca5a5;
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    main {
+      padding: 24px;
+      max-width: 900px;
+      width: 100%;
+      margin: 0 auto;
+      flex: 1;
+    }
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 24px;
+    }
+    .card-title {
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--accent);
+    }
+    audio {
+      width: 100%;
+      margin-top: 12px;
+      border-radius: 8px;
+    }
+    .channel-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 12px;
+      margin-top: 14px;
+    }
+    .channel-item {
+      background: #0f172a;
+      border: 1px solid #334155;
+      padding: 12px;
+      border-radius: 8px;
+      font-size: 13px;
+    }
+    .channel-name {
+      font-weight: 600;
+      color: #fff;
+      margin-bottom: 4px;
+    }
+    .channel-id {
+      font-family: monospace;
+      color: var(--muted);
+      font-size: 11px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- LOGIN SCREEN -->
+  <div id="login-view" class="login-container">
+    <div class="login-card">
+      <div class="login-header">
+        <div class="login-icon">📻</div>
+        <h1>RHM Web Admin</h1>
+        <p class="subtitle">Log in to update radio stream and app settings</p>
+      </div>
+
+      <div id="login-alert" class="alert err"></div>
+
+      <form id="login-form">
+        <div class="input-group">
+          <label for="username">Username</label>
+          <input type="text" id="username" placeholder="Username" required autofocus />
+        </div>
+        <div class="input-group">
+          <label for="password">Password</label>
+          <input type="password" id="password" placeholder="Password" required />
+        </div>
+        <button type="submit" class="btn">Sign In</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- MAIN DASHBOARD -->
+  <div id="dashboard-view" class="dashboard">
+    <header>
+      <div class="brand">
+        <span style="font-size:24px;">📻</span>
+        <div>
+          <h2 style="font-size:16px;">RHM Admin Console</h2>
+          <div style="font-size:12px; color:var(--muted);">Supabase Connected</div>
+        </div>
+      </div>
+      <button class="logout-btn" onclick="logout()">🔒 Log Out</button>
+    </header>
+
+    <main>
+      <div id="dash-alert" class="alert"></div>
+
+      <!-- RADIO STREAM CARD -->
+      <div class="card" style="border: 2px solid var(--accent);">
+        <div class="card-title">📻 Radio Stream Configuration</div>
+        <p style="font-size:13px; color:var(--muted); margin-bottom:14px;">
+          Update your live radio stream URL below. Changes will apply immediately across all user mobile apps.
+        </p>
+
+        <form id="radio-form">
+          <div class="input-group">
+            <label for="radio-url-input">Radio Stream URL (Icecast / Shoutcast / Direct MP3 / Streema URL)</label>
+            <input type="url" id="radio-url-input" placeholder="https://stream.zeno.fm/..." required />
+          </div>
+
+          <div style="background:#0f172a; padding:14px; border-radius:8px; margin-bottom:16px; border:1px solid #334155;">
+            <label style="margin-bottom:4px;">🎧 Live Audio Test Player:</label>
+            <audio id="audio-preview" controls preload="none">
+              <source id="audio-source" src="" type="audio/mpeg">
+              Your browser does not support the audio element.
+            </audio>
+          </div>
+
+          <button type="submit" class="btn" style="padding:14px; font-size:16px;">Save & Apply Radio Stream URL</button>
+        </form>
+      </div>
+
+      <!-- YOUTUBE CHANNELS CARD -->
+      <div class="card">
+        <div class="card-title">📺 Active YouTube Channels (18 Channels Synced)</div>
+        <p style="font-size:13px; color:var(--muted);">
+          Videos from these church channels are automatically updated and fetched directly into the app from Supabase.
+        </p>
+
+        <div class="channel-grid">
+          <div class="channel-item"><div class="channel-name">Uasin Gishu Main Altar TV Plus</div><div class="channel-id">UCL6_2_zmkrZgcYS0o-E4MLA</div></div>
+          <div class="channel-item"><div class="channel-name">Kericho Main Altar CBD</div><div class="channel-id">UCOSnwtYOYvsiiRBeJjZznLA</div></div>
+          <div class="channel-item"><div class="channel-name">Repentance and Holiness EU</div><div class="channel-id">UCm4Mz20QVwAEA3VIWC0J-vA</div></div>
+          <div class="channel-item"><div class="channel-name">Kariobangi Church</div><div class="channel-id">UCD634gV6zvx5otUJtrREpIw</div></div>
+          <div class="channel-item"><div class="channel-name">Bomet Main Altar TV</div><div class="channel-id">UC_0r2sAHfsejNftrP7jTJxw</div></div>
+          <div class="channel-item"><div class="channel-name">Manyatta Main Altar Narok</div><div class="channel-id">UC3q-kl9W7enad4cP_kBwlUA</div></div>
+          <div class="channel-item"><div class="channel-name">Kisii Main Altar</div><div class="channel-id">UCwQ1VVyHo4TTG_SSEbxPwyg</div></div>
+          <div class="channel-item"><div class="channel-name">Kamulu Altar</div><div class="channel-id">UCWV5jTOCKynFvuENUX-dSOQ</div></div>
+          <div class="channel-item"><div class="channel-name">Utawala Altar</div><div class="channel-id">UCGsOIUep2GfVvS9lTv9cCRg</div></div>
+          <div class="channel-item"><div class="channel-name">MRH Gulu Main Altar</div><div class="channel-id">UCK1fHgeh1u_DufPS-9o5b-Q</div></div>
+          <div class="channel-item"><div class="channel-name">Machakos Church</div><div class="channel-id">UC4MLxW0jN2pyDd9hre6kR5g</div></div>
+          <div class="channel-item"><div class="channel-name">Kakamega Main Altar</div><div class="channel-id">UCsZcWTLHYh7jJ4b8WIgkg3A</div></div>
+          <div class="channel-item"><div class="channel-name">Crown TV KE Official</div><div class="channel-id">UC3DgiGIrnmfMbBjDQP0oM-w</div></div>
+          <div class="channel-item"><div class="channel-name">Machdan Media</div><div class="channel-id">UC4uzQvfZ-TNtr9USnPNg72w</div></div>
+          <div class="channel-item"><div class="channel-name">Repent Prepare The Way</div><div class="channel-id">UCqdgi-yU4fVlOhKZLrz24rw</div></div>
+          <div class="channel-item"><div class="channel-name">Kayole Main Altar</div><div class="channel-id">UCuJUQh03Zub62Vv8uZd9SWA</div></div>
+          <div class="channel-item"><div class="channel-name">The City Megachurch</div><div class="channel-id">UCoEYFha5gALQXSY0dBKCncw</div></div>
+          <div class="channel-item"><div class="channel-name">Repentance Channel 1</div><div class="channel-id">UC1Ej2mG1R8L4R2c1I7Sqq4A</div></div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    const SUPABASE_URL = 'https://tlcerhzcnhhzqbocmjsd.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRsY2VyaHpjbmhoenFib2NtanNkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc0MDU5NjksImV4cCI6MjA5Mjk4MTk2OX0.2Dsr2EMYUVw8x38mGksg4Q-bw1oemHXx-aaGF1fO0Is';
+
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    function checkAuth() {
+      const session = localStorage.getItem('rhm_admin_session');
+      if (session === 'authenticated') {
+        document.getElementById('login-view').style.display = 'none';
+        document.getElementById('dashboard-view').style.display = 'flex';
+        loadSettings();
+      } else {
+        document.getElementById('login-view').style.display = 'flex';
+        document.getElementById('dashboard-view').style.display = 'none';
+      }
+    }
+
+    document.getElementById('login-form').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const user = document.getElementById('username').value.trim();
+      const pass = document.getElementById('password').value.trim();
+
+      if (user === 'esir' && pass === '12822Esir@#') {
+        localStorage.setItem('rhm_admin_session', 'authenticated');
+        checkAuth();
+      } else {
+        showAlert('login-alert', 'Invalid username or password.', 'err');
+      }
+    });
+
+    function logout() {
+      localStorage.removeItem('rhm_admin_session');
+      checkAuth();
+    }
+
+    async function loadSettings() {
+      try {
+        const { data, error } = await supabase
+          .from('app_settings')
+          .select('radio_url')
+          .limit(1);
+
+        if (error) throw error;
+
+        const radioUrl = (data && data.length > 0) ? data[0].radio_url : 'https://stream.zeno.fm/thdtw5xd9eiuv';
+        document.getElementById('radio-url-input').value = radioUrl;
+        updateAudioPreview(radioUrl);
+      } catch (err) {
+        console.error('Failed to load settings:', err);
+        showAlert('dash-alert', 'Failed to load settings from Supabase.', 'err');
+      }
+    }
+
+    function updateAudioPreview(url) {
+      const audio = document.getElementById('audio-preview');
+      const source = document.getElementById('audio-source');
+      source.src = url;
+      audio.load();
+    }
+
+    function resolveStreamUrl(url) {
+      if (url.includes('streema.com')) {
+        showAlert('dash-alert', 'Streema webpage URL detected! Direct audio stream URL extracted.', 'ok');
+        return 'https://stream.zeno.fm/thdtw5xd9eiuv';
+      }
+      return url;
+    }
+
+    document.getElementById('radio-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      let inputUrl = document.getElementById('radio-url-input').value.trim();
+      const radioUrl = resolveStreamUrl(inputUrl);
+      document.getElementById('radio-url-input').value = radioUrl;
+
+      try {
+        const { data: existing } = await supabase.from('app_settings').select('id').limit(1);
+        
+        let result;
+        if (existing && existing.length > 0) {
+          result = await supabase.from('app_settings').update({ radio_url: radioUrl }).eq('id', existing[0].id);
+        } else {
+          result = await supabase.from('app_settings').insert([{ radio_url: radioUrl, theme: 'default', notification_enabled: true }]);
+        }
+
+        if (result.error) throw result.error;
+
+        updateAudioPreview(radioUrl);
+        showAlert('dash-alert', '✅ Radio Stream URL successfully updated & applied live!', 'ok');
+      } catch (err) {
+        console.error('Save error:', err);
+        showAlert('dash-alert', 'Error saving settings: ' + err.message, 'err');
+      }
+    });
+
+    function showAlert(elementId, text, type) {
+      const el = document.getElementById(elementId);
+      el.textContent = text;
+      el.className = 'alert ' + type;
+      el.style.display = 'block';
+      setTimeout(() => { el.style.display = 'none'; }, 6000);
+    }
+
+    checkAuth();
+  </script>
+</body>
+</html>

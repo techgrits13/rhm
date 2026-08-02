@@ -151,9 +151,14 @@
 </head>
 
 <body>
-  <header>
-    <h1>RHM Admin</h1>
-    <div class="muted">Manage slideshow, YouTube sync, and app settings</div>
+  <header style="display:flex; justify-content:space-between; align-items:center;">
+    <div>
+      <h1 style="margin:0;">RHM Admin</h1>
+      <div class="muted" style="color:rgba(255,255,255,0.8);">Manage Radio Stream, Slideshow, YouTube Sync & Content</div>
+    </div>
+    <div>
+      <a href="/admin-ui/logout" style="background:rgba(255,255,255,0.2); color:#fff; padding:8px 14px; text-decoration:none; border-radius:6px; font-weight:600; font-size:14px; transition:background 0.2s;">🔒 Log Out</a>
+    </div>
   </header>
   <main>
     <% if (message) { %>
@@ -426,16 +431,29 @@
               </div>
             </div>
 
-            <div class="card">
-              <h2>8) App Settings</h2>
+            <div class="card" style="border: 2px solid #6366f1;">
+              <h2 style="color: #4f46e5; display:flex; align-items:center; gap:8px;">📻 Radio Stream & App Settings</h2>
               <form action="/admin-ui/settings" method="post">
-                <label>Radio Stream URL</label>
-                <input type="url" name="radio_url" value="<%= (settings && settings.radio_url) || '' %>" />
+                <label>Radio Stream URL (Live Audio Endpoint)</label>
+                <input type="url" id="radio_url_input" name="radio_url" value="<%= (settings && settings.radio_url) || 'https://jesusislordradio.info:8443/stream' %>" placeholder="https://..." required />
+                <div class="muted" style="margin-top:4px; margin-bottom:12px;">Enter your direct radio stream URL (e.g. Shoutcast/Icecast or direct MP3 stream URL).</div>
+
+                <% if (settings && settings.radio_url) { %>
+                  <div style="background:#f1f5f9; padding:12px; border-radius:8px; margin-bottom:14px; border:1px solid #cbd5e1;">
+                    <strong style="display:block; margin-bottom:6px; font-size:13px; color:#334155;">🎧 Test Live Radio Stream Preview:</strong>
+                    <audio id="stream-preview" controls preload="none" style="width:100%;">
+                      <source src="<%= settings.radio_url %>" type="audio/mpeg">
+                      Your browser does not support the audio element.
+                    </audio>
+                  </div>
+                <% } %>
+
                 <label>Theme</label>
                 <input type="text" name="theme" value="<%= (settings && settings.theme) || 'default' %>" />
-                <label><input type="checkbox" name="notification_enabled" <%=(settings && settings.notification_enabled)
-                    ? 'checked' : '' %> /> Notifications enabled</label>
-                <div style="margin-top:10px"><button class="btn" type="submit">Save Settings</button></div>
+
+                <label style="margin-top:14px;"><input type="checkbox" name="notification_enabled" <%=(settings && settings.notification_enabled) ? 'checked' : '' %> /> Push Notifications enabled</label>
+
+                <div style="margin-top:16px"><button class="btn" type="submit" style="font-size:15px; padding:12px 20px;">Save & Apply Settings</button></div>
               </form>
             </div>
   </main>
