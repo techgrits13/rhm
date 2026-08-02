@@ -305,112 +305,106 @@
   </div>
 
   <script>
-    const SUPABASE_URL = 'https://tlcerhzcnhhzqbocmjsd.supabase.co';
+    // ── credentials ──────────────────────────────────────────────────────────
+    const VALID_USER = 'esir';
+    const VALID_PASS = '12822Esir@#';
+
+    const SUPABASE_URL      = 'https://tlcerhzcnhhzqbocmjsd.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRsY2VyaHpjbmhoenFib2NtanNkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc0MDU5NjksImV4cCI6MjA5Mjk4MTk2OX0.2Dsr2EMYUVw8x38mGksg4Q-bw1oemHXx-aaGF1fO0Is';
 
-    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-    function checkAuth() {
-      const session = localStorage.getItem('rhm_admin_session');
-      if (session === 'authenticated') {
-        document.getElementById('login-view').style.display = 'none';
-        document.getElementById('dashboard-view').style.display = 'flex';
-        loadSettings();
-      } else {
-        document.getElementById('login-view').style.display = 'flex';
-        document.getElementById('dashboard-view').style.display = 'none';
+    // ── supabase is created only AFTER login so a slow CDN load can't crash login ──
+    let supabase = null;
+    function getSupabase() {
+      if (!supabase) {
+        supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
       }
+      return supabase;
     }
 
-    document.getElementById('login-form').addEventListener('submit', (e) => {
+    // ── auth helpers ──────────────────────────────────────────────────────────
+    function checkAuth() {
+      const ok = localStorage.getItem('rhm_admin_session') === 'authenticated';
+      document.getElementById('login-view').style.display    = ok ? 'none' : 'flex';
+      document.getElementById('dashboard-view').style.display = ok ? 'flex' : 'none';
+      if (ok) loadSettings();
+    }
+
+    function logout() {
+      localStorage.removeItem('rhm_admin_session');
+      supabase = null;
+      checkAuth();
+    }
+
+    // ── login form ────────────────────────────────────────────────────────────
+    document.getElementById('login-form').addEventListener('submit', function(e) {
       e.preventDefault();
       const user = document.getElementById('username').value.trim();
       const pass = document.getElementById('password').value.trim();
 
-      const validUser = user.toLowerCase() === 'esir';
-      const validPass = (pass === '12822Esir@#' || pass === '"12822Esir@#"');
-
-      if (validUser && validPass) {
+      if (user.toLowerCase() === VALID_USER.toLowerCase() && pass === VALID_PASS) {
         localStorage.setItem('rhm_admin_session', 'authenticated');
         checkAuth();
       } else {
-        showAlert('login-alert', 'Invalid username or password.', 'err');
+        showAlert('login-alert', '❌ Wrong username or password. Try again.', 'err');
       }
     });
 
-    function logout() {
-      localStorage.removeItem('rhm_admin_session');
-      checkAuth();
-    }
-
+    // ── dashboard ─────────────────────────────────────────────────────────────
     async function loadSettings() {
       try {
-        const { data, error } = await supabase
-          .from('app_settings')
-          .select('radio_url')
-          .limit(1);
-
+        const sb = getSupabase();
+        const { data, error } = await sb.from('app_settings').select('radio_url').limit(1);
         if (error) throw error;
-
         const radioUrl = (data && data.length > 0) ? data[0].radio_url : 'https://stream.zeno.fm/thdtw5xd9eiuv';
         document.getElementById('radio-url-input').value = radioUrl;
         updateAudioPreview(radioUrl);
       } catch (err) {
-        console.error('Failed to load settings:', err);
-        showAlert('dash-alert', 'Failed to load settings from Supabase.', 'err');
+        showAlert('dash-alert', 'Could not load settings: ' + err.message, 'err');
       }
     }
 
     function updateAudioPreview(url) {
-      const audio = document.getElementById('audio-preview');
+      const audio  = document.getElementById('audio-preview');
       const source = document.getElementById('audio-source');
       source.src = url;
       audio.load();
     }
 
-    function resolveStreamUrl(url) {
-      if (url.includes('streema.com')) {
-        showAlert('dash-alert', 'Streema webpage URL detected! Direct audio stream URL extracted.', 'ok');
-        return 'https://stream.zeno.fm/thdtw5xd9eiuv';
-      }
-      return url;
-    }
-
-    document.getElementById('radio-form').addEventListener('submit', async (e) => {
+    document.getElementById('radio-form').addEventListener('submit', async function(e) {
       e.preventDefault();
-      let inputUrl = document.getElementById('radio-url-input').value.trim();
-      const radioUrl = resolveStreamUrl(inputUrl);
-      document.getElementById('radio-url-input').value = radioUrl;
-
+      let url = document.getElementById('radio-url-input').value.trim();
+      if (url.includes('streema.com')) {
+        url = 'https://stream.zeno.fm/thdtw5xd9eiuv';
+        document.getElementById('radio-url-input').value = url;
+        showAlert('dash-alert', '⚠️ Streema page URL detected — using direct stream URL instead.', 'ok');
+      }
       try {
-        const { data: existing } = await supabase.from('app_settings').select('id').limit(1);
-        
+        const sb = getSupabase();
+        const { data: existing } = await sb.from('app_settings').select('id').limit(1);
         let result;
         if (existing && existing.length > 0) {
-          result = await supabase.from('app_settings').update({ radio_url: radioUrl }).eq('id', existing[0].id);
+          result = await sb.from('app_settings').update({ radio_url: url }).eq('id', existing[0].id);
         } else {
-          result = await supabase.from('app_settings').insert([{ radio_url: radioUrl, theme: 'default', notification_enabled: true }]);
+          result = await sb.from('app_settings').insert([{ radio_url: url, theme: 'default', notification_enabled: true }]);
         }
-
         if (result.error) throw result.error;
-
-        updateAudioPreview(radioUrl);
-        showAlert('dash-alert', '✅ Radio Stream URL successfully updated & applied live!', 'ok');
+        updateAudioPreview(url);
+        showAlert('dash-alert', '✅ Radio Stream URL updated successfully!', 'ok');
       } catch (err) {
-        console.error('Save error:', err);
-        showAlert('dash-alert', 'Error saving settings: ' + err.message, 'err');
+        showAlert('dash-alert', 'Error saving: ' + err.message, 'err');
       }
     });
 
-    function showAlert(elementId, text, type) {
-      const el = document.getElementById(elementId);
+    function showAlert(id, text, type) {
+      const el = document.getElementById(id);
       el.textContent = text;
       el.className = 'alert ' + type;
       el.style.display = 'block';
       setTimeout(() => { el.style.display = 'none'; }, 6000);
     }
 
-    checkAuth();
+    // ── boot ──────────────────────────────────────────────────────────────────
+    window.addEventListener('load', checkAuth);
   </script>
 </body>
 </html>
