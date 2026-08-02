@@ -30,7 +30,6 @@
       display: flex;
       flex-direction: column;
     }
-    /* Login Screen */
     .login-container {
       display: flex;
       align-items: center;
@@ -125,8 +124,6 @@
       border: 1px solid var(--success);
       color: #a7f3d0;
     }
-
-    /* Main Dashboard */
     .dashboard {
       display: none;
       flex-direction: column;
@@ -224,11 +221,11 @@
       <form id="login-form">
         <div class="input-group">
           <label for="username">Username</label>
-          <input type="text" id="username" placeholder="Username" required autofocus />
+          <input type="text" id="username" placeholder="Username" required autofocus autocomplete="username" />
         </div>
         <div class="input-group">
           <label for="password">Password</label>
-          <input type="password" id="password" placeholder="Password" required />
+          <input type="password" id="password" placeholder="Password" required autocomplete="current-password" />
         </div>
         <button type="submit" class="btn">Sign In</button>
       </form>
@@ -313,7 +310,6 @@
 
     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    // Auth Check
     function checkAuth() {
       const session = localStorage.getItem('rhm_admin_session');
       if (session === 'authenticated') {
@@ -326,13 +322,15 @@
       }
     }
 
-    // Login Form Submit
     document.getElementById('login-form').addEventListener('submit', (e) => {
       e.preventDefault();
       const user = document.getElementById('username').value.trim();
       const pass = document.getElementById('password').value.trim();
 
-      if (user === 'esir' && pass === '12822Esir@#') {
+      const validUser = user.toLowerCase() === 'esir';
+      const validPass = (pass === '12822Esir@#' || pass === '"12822Esir@#"');
+
+      if (validUser && validPass) {
         localStorage.setItem('rhm_admin_session', 'authenticated');
         checkAuth();
       } else {
@@ -345,7 +343,6 @@
       checkAuth();
     }
 
-    // Load Radio Settings from Supabase
     async function loadSettings() {
       try {
         const { data, error } = await supabase
@@ -371,7 +368,6 @@
       audio.load();
     }
 
-    // Handle Streema URLs
     function resolveStreamUrl(url) {
       if (url.includes('streema.com')) {
         showAlert('dash-alert', 'Streema webpage URL detected! Direct audio stream URL extracted.', 'ok');
@@ -380,7 +376,6 @@
       return url;
     }
 
-    // Save Radio Settings
     document.getElementById('radio-form').addEventListener('submit', async (e) => {
       e.preventDefault();
       let inputUrl = document.getElementById('radio-url-input').value.trim();

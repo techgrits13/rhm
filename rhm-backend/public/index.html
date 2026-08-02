@@ -221,11 +221,11 @@
       <form id="login-form">
         <div class="input-group">
           <label for="username">Username</label>
-          <input type="text" id="username" placeholder="Username" required autofocus />
+          <input type="text" id="username" placeholder="Username" required autofocus autocomplete="username" />
         </div>
         <div class="input-group">
           <label for="password">Password</label>
-          <input type="password" id="password" placeholder="Password" required />
+          <input type="password" id="password" placeholder="Password" required autocomplete="current-password" />
         </div>
         <button type="submit" class="btn">Sign In</button>
       </form>
@@ -327,7 +327,10 @@
       const user = document.getElementById('username').value.trim();
       const pass = document.getElementById('password').value.trim();
 
-      if (user === 'esir' && pass === '12822Esir@#') {
+      const validUser = user.toLowerCase() === 'esir';
+      const validPass = (pass === '12822Esir@#' || pass === '"12822Esir@#"');
+
+      if (validUser && validPass) {
         localStorage.setItem('rhm_admin_session', 'authenticated');
         checkAuth();
       } else {
