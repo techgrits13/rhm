@@ -296,6 +296,14 @@ export default function AboutScreen() {
             <Text style={styles.linkText}>Machdan Media</Text>
             <Ionicons name="chevron-forward" size={20} color={colors.placeholder} />
           </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.linkItem}
+            onPress={() => openLink('https://www.youtube.com/@tikvah_media')}
+          >
+            <Ionicons name="logo-youtube" size={24} color="#FF0000" />
+            <Text style={styles.linkText}>Tikvah Media</Text>
+            <Ionicons name="chevron-forward" size={20} color={colors.placeholder} />
+          </TouchableOpacity>
         </View>
 
 

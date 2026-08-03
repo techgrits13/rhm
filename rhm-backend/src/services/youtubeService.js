@@ -23,6 +23,7 @@ export const CHURCH_CHANNELS = [
   { id: 'UCK1fHgeh1u_DufPS-9o5b-Q', handle: '@mrhgulumainaltar', name: 'MRH Gulu Main Altar' },
   { id: 'UC4MLxW0jN2pyDd9hre6kR5g', handle: '@machakoschurch', name: 'Machakos Church' },
   { id: 'UCsZcWTLHYh7jJ4b8WIgkg3A', handle: '@kakamega_main_altar', name: 'Kakamega Main Altar' },
+  { id: 'UC_cACFGIrmVKlnL93LgUsfg', handle: '@tikvah_media', name: 'Tikvah Media' },
 ];
 
 /**
