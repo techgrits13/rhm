@@ -76,7 +76,19 @@
       "@react-native-firebase/app",
       "expo-font",
       "expo-web-browser",
-      "expo-build-properties"
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "extraMavenRepos": [
+              "https://artifacts.applovin.com/android"
+            ],
+            "extraDependencies": [
+              "com.applovin.mediation:google-adapter:23.6.0.0"
+            ]
+          }
+        }
+      ]
     ],
     "extra": {
       "disableAds": false,
