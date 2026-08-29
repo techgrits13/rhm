@@ -128,8 +128,7 @@ export async function deleteMusicTrack(id: number | string): Promise<{ success: 
 }
 
 /**
- * Send Push Notification to all registered devices.
- * Returns REAL counts from Expo — not just DB token count.
+ * Send Push Notification to all subscribed devices via FCM Topic (RHM_ALL_USERS)
  */
 export async function broadcastNotification(
     title: string,
@@ -138,15 +137,10 @@ export async function broadcastNotification(
 ): Promise<{
     success: boolean;
     sent?: number;
-    total_tokens?: number;
-    failed?: number;
-    purged?: number;
-    expo_errors?: any[];
-    message?: string;
     error?: string;
 }> {
     try {
-        console.log(`📣 Sending broadcast notification: ${title}`);
+        console.log(`📣 Sending broadcast to FCM topic: ${title}`);
         const response = await supabaseApi.post('/notifications/broadcast', {
             title,
             body,
@@ -157,17 +151,11 @@ export async function broadcastNotification(
             throw new Error(`Edge Function error: ${response.status}`);
         }
 
-        const d = response.data;
-        console.log('📬 Broadcast response from Edge Function:', JSON.stringify(d));
+        console.log('📬 Broadcast response from Edge Function:', response.data);
 
         return {
-            success: d?.success ?? false,
-            sent: d?.sent ?? 0,               // tickets with status=ok from Expo
-            total_tokens: d?.total_tokens ?? 0, // tokens found in DB
-            failed: d?.failed ?? 0,             // tickets with status=error
-            purged: d?.purged ?? 0,             // tokens auto-removed
-            expo_errors: d?.expo_errors ?? [],  // first 10 Expo error details
-            message: d?.message,
+            success: response.data?.success ?? false,
+            sent: response.data?.success ? 1 : 0
         };
     } catch (error: any) {
         console.error('Broadcast Notification Error:', error.response?.data || error);

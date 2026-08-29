@@ -5,6 +5,11 @@ import api, { supabaseApi } from './api';
 import { API_BASE_URL } from '../config';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
+import { 
+  getMessaging, requestPermission, subscribeToTopic, 
+  unsubscribeFromTopic, getToken, hasPermission, 
+  onMessage, onNotificationOpenedApp, getInitialNotification 
+} from '@react-native-firebase/messaging';
 
 // ─── CRITICAL: Configure how notifications render when app is foregrounded ───
 Notifications.setNotificationHandler({
@@ -18,18 +23,12 @@ Notifications.setNotificationHandler({
 
 // ─── Hardcoded EAS project ID — NEVER changes. Prevents falling back to Expo Go. ───
 const EAS_PROJECT_ID = '099536d0-ecd3-43dd-bb67-61be5f1976c1';
-
 const PUSH_TOKEN_KEY = '@rhm_push_token';
 const NOTIFICATION_DENIED_KEY = '@rhm_notifications_denied';
 const NOTIFICATION_REMINDER_STATE_KEY = '@rhm_notification_reminder_state';
 const MAX_DENIED_REMINDERS_PER_DAY = 4;
 const MIN_REMINDER_INTERVAL_MS = 3 * 60 * 60 * 1000;
 
-/**
- * Create the Android notification channel.
- * MUST be called before requesting permission / getting a token.
- * Without this, Android 8+ drops notifications silently.
- */
 async function setupAndroidChannel(): Promise<void> {
     if (Platform.OS !== 'android') return;
     await Notifications.setNotificationChannelAsync('default', {
@@ -45,63 +44,38 @@ async function setupAndroidChannel(): Promise<void> {
     });
 }
 
-/**
- * Request notification permissions and get an Expo push token scoped
- * to the RHM standalone app (never Expo Go).
- */
 export async function registerForPushNotifications(): Promise<string | null> {
     try {
-        // Step 1: Create Android channel FIRST
         await setupAndroidChannel();
 
-        // Only works on physical devices
         if (!Device.isDevice) {
             console.log('Push notifications only work on physical devices');
             return null;
         }
 
-        // Step 2: Request permissions
-        const { status: existingStatus } = await Notifications.getPermissionsAsync();
-        let finalStatus = existingStatus;
+        const msg = getMessaging();
+        const authStatus = await requestPermission(msg);
+        // AuthorizationStatus is an enum, usually 1 for Authorized, 2 for Provisional. We'll just check if it's > 0
+        const enabled = authStatus === 1 || authStatus === 2;
 
-        if (existingStatus !== 'granted') {
-            const { status } = await Notifications.requestPermissionsAsync();
-            finalStatus = status;
-        }
-
-        if (finalStatus !== 'granted') {
+        if (!enabled) {
             await AsyncStorage.setItem(NOTIFICATION_DENIED_KEY, 'true');
-            console.warn('Notification permissions denied');
+            console.warn('Firebase Notification permissions denied');
             return null;
         }
 
         await AsyncStorage.removeItem(NOTIFICATION_DENIED_KEY);
 
-        // Step 3a: If we already have a token, reuse it but ALWAYS re-register with backend.
-        // This fixes cases where the first registration failed due to network/env issues.
-        const existingToken = await AsyncStorage.getItem(PUSH_TOKEN_KEY);
-        if (existingToken) {
-            await registerTokenWithBackend(existingToken);
-            return existingToken;
+        try {
+            await subscribeToTopic(msg, 'RHM_ALL_USERS');
+            console.log('✅ Subscribed to FCM topic: RHM_ALL_USERS');
+        } catch (e) {
+            console.error('Failed to subscribe to FCM topic:', e);
         }
 
-        // Step 3b: Get push token — ALWAYS pass projectId so it's bound to com.rhm.app,
-        // not to Expo Go. Expo Go tokens start with ExponentPushToken and open Expo Go.
-        const projectId =
-            Constants?.expoConfig?.extra?.eas?.projectId ??
-            Constants?.easConfig?.projectId ??
-            EAS_PROJECT_ID; // hardcoded fallback — never allow undefined
-
-        console.log('🆔 Token will be scoped to projectId:', projectId);
-
-        const tokenData = await Notifications.getExpoPushTokenAsync({ projectId });
-        const token = tokenData.data;
-
-        console.log('✅ Push token:', token);
-
-        // Step 4: Persist locally and register with backend
+        const token = await getToken(msg);
+        console.log('✅ FCM Push token:', token);
         await AsyncStorage.setItem(PUSH_TOKEN_KEY, token);
-        await registerTokenWithBackend(token);
 
         return token;
     } catch (error) {
@@ -110,11 +84,7 @@ export async function registerForPushNotifications(): Promise<string | null> {
     }
 }
 
-type ReminderState = {
-    date: string;
-    count: number;
-    lastShownAt: number;
-};
+type ReminderState = { date: string; count: number; lastShownAt: number; };
 
 function todayKey(): string {
     return new Date().toISOString().slice(0, 10);
@@ -137,16 +107,13 @@ async function readReminderState(): Promise<ReminderState> {
     }
 }
 
-/**
- * Denied users cannot receive push/local notifications, so remind them in-app.
- */
 export async function maybeShowNotificationPermissionReminder(): Promise<void> {
     try {
         const denied = await AsyncStorage.getItem(NOTIFICATION_DENIED_KEY);
         if (denied !== 'true') return;
 
-        const { status } = await Notifications.getPermissionsAsync();
-        if (status === 'granted') {
+        const authStatus = await hasPermission(getMessaging());
+        if (authStatus === 1 || authStatus === 2) {
             await AsyncStorage.removeItem(NOTIFICATION_DENIED_KEY);
             return;
         }
@@ -174,89 +141,83 @@ export async function maybeShowNotificationPermissionReminder(): Promise<void> {
     }
 }
 
-/**
- * Register push token with Supabase edge function.
- */
-async function registerTokenWithBackend(token: string): Promise<void> {
-    try {
-        const platform = Platform.OS;
-        const appOwnership = Constants.appOwnership || 'standalone';
-        console.log('☁️ Registering push token with Supabase...', { token, platform, appOwnership });
-        const payload = {
-            token,
-            platform,
-            app_ownership: appOwnership,
-            experience_id: Constants.experienceId,
-        };
-
-        const maxAttempts = 3;
-        let lastError: any;
-        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-            try {
-                const response = await supabaseApi.post('/notifications/register', payload);
-                console.log('✅ Push token registered:', response.data);
-                return;
-            } catch (e: any) {
-                lastError = e;
-                const delayMs = 800 * attempt;
-                console.warn(`⚠️ Push token register attempt ${attempt}/${maxAttempts} failed; retrying in ${delayMs}ms...`);
-                await new Promise((r) => setTimeout(r, delayMs));
-            }
-        }
-
-        throw lastError;
-    } catch (error) {
-        console.error('Error registering token with Supabase:', error);
-        throw error;
-    }
-}
-
-/**
- * Unregister push token (disable notifications for this device).
- */
 export async function unregisterPushToken(): Promise<void> {
     try {
-        const token = await AsyncStorage.getItem(PUSH_TOKEN_KEY);
-        if (!token) return;
-
-        await supabaseApi.post('/notifications/unregister', { token });
-        await AsyncStorage.removeItem(PUSH_TOKEN_KEY);
-        console.log('Push token unregistered');
+        await unsubscribeFromTopic(getMessaging(), 'RHM_ALL_USERS');
+        console.log('Unsubscribed from FCM topic: RHM_ALL_USERS');
     } catch (error) {
         console.error('Error unregistering push token:', error);
     }
 }
 
-/**
- * Setup notification listeners (foreground + tap).
- */
 export function setupNotificationListeners(
-    onNotificationReceived: (notification: Notifications.Notification) => void,
-    onNotificationTapped: (response: Notifications.NotificationResponse) => void
+    onNotificationReceived: (notification: any) => void,
+    onNotificationTapped: (response: any) => void
 ) {
-    const notificationListener = Notifications.addNotificationReceivedListener(
-        (notification) => {
-            console.log('📬 Notification received (foreground):', notification);
-            onNotificationReceived(notification);
+    const msg = getMessaging();
+
+    const unsubscribeOnMessage = onMessage(msg, async (remoteMessage: any) => {
+        console.log('📬 Notification received (foreground):', remoteMessage);
+        
+        // ── Adapt FCM remote message shape → Expo Notification shape ──────────
+        // NotificationHandler expects { request: { content: { title, body, data } } }
+        // FCM message has { notification: { title, body }, data: {} }
+        const adaptedNotification = {
+            request: {
+                content: {
+                    title: remoteMessage.notification?.title || '',
+                    body: remoteMessage.notification?.body || '',
+                    data: remoteMessage.data || {},
+                }
+            }
+        };
+        onNotificationReceived(adaptedNotification as any);
+        
+        // ── Also show a system-level banner while app is in foreground ─────────
+        if (remoteMessage.notification) {
+            try {
+                await Notifications.scheduleNotificationAsync({
+                    content: {
+                        title: remoteMessage.notification.title || '',
+                        body: remoteMessage.notification.body || '',
+                        data: remoteMessage.data || {},
+                        sound: 'default',
+                    },
+                    trigger: Platform.OS === 'android'
+                        ? { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds: 1, channelId: 'default' } as any
+                        : null,
+                });
+            } catch (err) {
+                console.warn('⚠️ scheduleNotificationAsync failed:', err);
+            }
         }
-    );
+    });
+
+    const unsubscribeOnNotificationOpenedApp = onNotificationOpenedApp(msg, (remoteMessage: any) => {
+        console.log('👆 Notification tapped (background):', remoteMessage);
+        onNotificationTapped(remoteMessage);
+    });
+
+    getInitialNotification(msg).then((remoteMessage: any) => {
+        if (remoteMessage) {
+            console.log('👆 Notification tapped (quit):', remoteMessage);
+            onNotificationTapped(remoteMessage);
+        }
+    });
 
     const responseListener = Notifications.addNotificationResponseReceivedListener(
         (response) => {
-            console.log('👆 Notification tapped:', response);
-            onNotificationTapped(response);
+            onNotificationTapped({ data: response.notification.request.content.data });
         }
     );
 
     return () => {
-        notificationListener.remove();
+        unsubscribeOnMessage();
+        unsubscribeOnNotificationOpenedApp();
         responseListener.remove();
     };
 }
 
-/**
- * Fetch in-app notifications from Supabase.
- */
 export async function fetchInAppNotifications(): Promise<any[]> {
     try {
         const response = await supabaseApi.get('/notifications/in-app');
@@ -267,9 +228,6 @@ export async function fetchInAppNotifications(): Promise<any[]> {
     }
 }
 
-/**
- * Mark a single notification as read.
- */
 export async function markNotificationAsRead(notificationId: number): Promise<void> {
     try {
         await supabaseApi.post('/notifications/mark-read', {
@@ -280,9 +238,6 @@ export async function markNotificationAsRead(notificationId: number): Promise<vo
     }
 }
 
-/**
- * Mark ALL notifications as read.
- */
 export async function markAllNotificationsAsRead(): Promise<void> {
     try {
         await supabaseApi.post('/notifications/mark-read', {

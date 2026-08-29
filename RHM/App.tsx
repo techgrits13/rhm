@@ -17,6 +17,12 @@ import NotificationHandler from './components/NotificationHandler';
 import NotificationErrorBoundary from './components/NotificationErrorBoundary';
 import { maybeShowNotificationPermissionReminder, registerForPushNotifications } from './services/notificationService';
 import { trackAppActivity } from './services/analyticsService';
+import { setupRemoteConfig } from './services/remoteConfigService';
+import { getMessaging, setBackgroundMessageHandler } from '@react-native-firebase/messaging';
+
+setBackgroundMessageHandler(getMessaging(), async (remoteMessage: any) => {
+  console.log('📬 Background message handled:', remoteMessage);
+});
 
 // Import screens
 import HomeScreen from './screens/HomeScreen';
@@ -127,6 +133,11 @@ export default function App() {
   const appStateRef = useRef<AppStateStatus>(AppState.currentState);
   const backgroundedAtRef = useRef<number | null>(null);
   const [isAppReady, setIsAppReady] = useState(false);
+
+  // Initialize Remote Config
+  useEffect(() => {
+    setupRemoteConfig();
+  }, []);
 
   // Initialize app services (ads only - NO notifications)
   useEffect(() => {
@@ -258,7 +269,7 @@ export default function App() {
             />
           </View>
           <Text style={styles.loadingTitle}>RHM</Text>
-          <Text style={styles.loadingSubtitle}>Prepare the way, the Messiah is calling</Text>
+          <Text style={styles.loadingSubtitle}>Prepare the way, the Messiah is coming</Text>
         </View>
         <View style={styles.loadingStatus}>
           <ActivityIndicator size="small" color="#6200ee" />

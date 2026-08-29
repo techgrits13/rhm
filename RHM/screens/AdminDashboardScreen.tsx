@@ -766,6 +766,7 @@ function PushAlertsTab() {
         { label: '🙏 Special Prayer', title: '🙏 Special Prayer Night', body: 'A special prayer session is happening right now. Tap to join us.' },
         { label: '🎶 New Music', title: '🎶 New Worship Track', body: 'A brand new worship song has just been added. Come listen!' },
         { label: '📰 News Alert', title: '📰 Breaking News', body: 'There is an important announcement. Tap to read now.' },
+        { label: 'mega prophets of yahweh', title: 'mega prophets of yahweh', body: 'now live on air cause yahweh has spoken' },
     ];
 
     const handleBroadcast = async () => {
@@ -790,41 +791,18 @@ function PushAlertsTab() {
                                 { screen: targetScreen }
                             );
                             setSending(false);
-
-                            if (res.success && (res.sent ?? 0) > 0) {
-                                setLastResult({ sent: res.sent ?? 0, purged: res.purged ?? 0 });
+                            if (res.success) {
+                                setLastResult({ sent: 1, purged: 0 });
                                 setTitle('');
                                 setMessage('');
                                 Alert.alert(
                                     '✅ Broadcast Sent!',
-                                    `✅ Delivered to ${res.sent} device(s) of ${res.total_tokens} registered.\n` +
-                                    `${(res.failed ?? 0) > 0 ? `⚠️ ${res.failed} delivery failure(s).\n` : ''}` +
-                                    `${(res.purged ?? 0) > 0 ? `🧹 Auto-removed ${res.purged} stale token(s).` : 'All tokens valid.'}`
-                                );
-                            } else if ((res.total_tokens ?? 0) === 0 || res.message?.includes('No devices')) {
-                                Alert.alert(
-                                    '⚠️ No Devices Registered',
-                                    'No push tokens found in the database.\n\nThis means no user has opened the RHM app since it was last installed/updated. Ask users to open the app to register their device.'
-                                );
-                            } else if ((res.failed ?? 0) > 0 && (res.sent ?? 0) === 0) {
-                                setLastResult({ sent: 0, purged: res.purged ?? 0 });
-                                const errSample = res.expo_errors?.[0];
-                                Alert.alert(
-                                    '❌ All Deliveries Failed',
-                                    `All ${res.total_tokens} token(s) were rejected by Expo.\n\n` +
-                                    `Error: ${errSample?.error || 'Unknown'}\n` +
-                                    `${errSample?.message || ''}\n\n` +
-                                    `💡 Likely cause: All tokens are stale (old Expo Go tokens or uninstalled app). Tap “Check Registered Devices” to inspect, then tap “Clean Stale Tokens” to reset.`
+                                    'Broadcast successfully sent to FCM High Intent Topic (RHM_ALL_USERS). All subscribed devices should receive it shortly.'
                                 );
                             } else if (res.error) {
                                 Alert.alert('❌ Error', res.error);
                             } else {
-                                // Partial success
-                                setLastResult({ sent: res.sent ?? 0, purged: res.purged ?? 0 });
-                                Alert.alert(
-                                    '⚠️ Partial Success',
-                                    `Delivered to ${res.sent} of ${res.total_tokens} device(s).\n${res.failed} failed.`
-                                );
+                                Alert.alert('❌ Error', 'Failed to send broadcast');
                             }
                         } catch (e: any) {
                             setSending(false);

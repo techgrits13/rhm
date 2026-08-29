@@ -2,16 +2,50 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 // @ts-ignore: Deno URL import
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1'
+// @ts-ignore: Deno URL import
+import { SignJWT, importPKCS8 } from "https://esm.sh/jose@4.14.4"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-// RHM project ID — tokens must belong to this project or they're stale Expo Go tokens
+// RHM project ID
 const RHM_PROJECT_ID = '099536d0-ecd3-43dd-bb67-61be5f1976c1';
 
-serve(async (req) => {
+// Function to generate Google OAuth2 token using jose
+async function getFcmAccessToken(serviceAccount: any): Promise<string> {
+  const privateKey = serviceAccount.private_key;
+  const clientEmail = serviceAccount.client_email;
+
+  const key = await importPKCS8(privateKey, "RS256");
+  
+  const jwt = await new SignJWT({
+    iss: clientEmail,
+    sub: clientEmail,
+    aud: "https://oauth2.googleapis.com/token",
+    scope: "https://www.googleapis.com/auth/firebase.messaging"
+  })
+    .setProtectedHeader({ alg: "RS256" })
+    .setIssuedAt()
+    .setExpirationTime("1h")
+    .sign(key);
+
+  const response = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: `grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Ajwt-bearer&assertion=${jwt}`
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(`Failed to get OAuth token: ${JSON.stringify(data)}`);
+  }
+  return data.access_token;
+}
+
+// @ts-ignore
+serve(async (req: any) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
@@ -174,115 +208,70 @@ serve(async (req) => {
 
       if (!title || !body) throw new Error('Missing notification title or message')
 
-      // 1. Fetch all tokens
-      const { data: tokens, error: tokenError } = await supabaseClient
-        .from('push_tokens')
-        .select('expo_push_token')
-
-      if (tokenError) throw tokenError
-
-      if (!tokens || tokens.length === 0) {
-        console.warn('⚠️ No push tokens found in database! Users need to open the app to register.')
-        return new Response(JSON.stringify({
-          success: false,
-          message: 'No devices registered. Ask users to open the RHM app so their device registers.',
-          sent: 0,
-          purged: 0,
-        }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 200,
-        })
+      // Get Firebase Service Account from Supabase Env
+      // @ts-ignore
+      const serviceAccountStr = Deno.env.get('FIREBASE_SERVICE_ACCOUNT_JSON') ?? Deno.env.get('FIREBASE_SERVICE_ACCOUNT');
+      if (!serviceAccountStr) {
+        throw new Error('Missing FIREBASE_SERVICE_ACCOUNT_JSON / FIREBASE_SERVICE_ACCOUNT secret for FCM topic sending.');
       }
+      const serviceAccount = JSON.parse(serviceAccountStr);
 
-      const expoPushTokens = tokens.map((t: any) => t.expo_push_token)
-      console.log(`📣 Broadcasting to ${expoPushTokens.length} tokens...`)
-      console.log('Token samples:', expoPushTokens.slice(0, 3).map((t: string) => t.slice(0, 50)))
+      const accessToken = await getFcmAccessToken(serviceAccount);
+      const projectId = serviceAccount.project_id;
 
-      // 2. Send in batches of 100 (Expo limit)
-      const chunks: string[][] = []
-      for (let i = 0; i < expoPushTokens.length; i += 100) {
-        chunks.push(expoPushTokens.slice(i, i + 100))
-      }
-
-      let successCount = 0
-      let errorCount = 0
-      const invalidTokens: string[] = []
-      const expoErrors: any[] = []
-
-      for (const chunk of chunks) {
-        const messages = chunk.map((token: string) => ({
-          to: token,
-          sound: 'default',
-          title,
-          body,
+      const fcmPayload = {
+        message: {
+          topic: "RHM_ALL_USERS",
+          notification: {
+            title,
+            body
+          },
           data: { ...(data || {}), screen: data?.screen || 'Home' },
-          channelId: 'default',
-          priority: 'high',
-        }))
-
-        console.log(`📤 Sending batch of ${messages.length} messages to Expo Push API...`)
-
-        let expoResponse: Response
-        try {
-          expoResponse = await fetch('https://exp.host/--/api/v2/push/send', {
-            method: 'POST',
-            headers: {
-              'Accept': 'application/json',
-              'Accept-encoding': 'gzip, deflate',
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(messages),
-          })
-        } catch (fetchError: any) {
-          console.error('❌ Failed to reach Expo Push API (network error):', fetchError.message)
-          throw new Error(`Cannot reach Expo Push API: ${fetchError.message}`)
-        }
-
-        if (!expoResponse.ok) {
-          const rawBody = await expoResponse.text()
-          console.error(`❌ Expo Push API returned HTTP ${expoResponse.status}:`, rawBody)
-          throw new Error(`Expo Push API error ${expoResponse.status}: ${rawBody}`)
-        }
-
-        const result = await expoResponse.json()
-        console.log('📬 Expo API response:', JSON.stringify(result).slice(0, 500))
-
-        // 3. Parse per-ticket results
-        if (result?.data && Array.isArray(result.data)) {
-          result.data.forEach((ticket: any, idx: number) => {
-            if (ticket?.status === 'ok') {
-              successCount++
-            } else if (ticket?.status === 'error') {
-              errorCount++
-              const errType = ticket?.details?.error
-              console.error(`❌ Expo push error for token ${chunk[idx]?.slice(0, 40)}: ${errType} — ${ticket.message}`)
-              expoErrors.push({ token: chunk[idx]?.slice(0, 40), error: errType, message: ticket.message })
-
-              if (errType === 'DeviceNotRegistered' || errType === 'InvalidCredentials') {
-                invalidTokens.push(chunk[idx])
-              }
-            } else {
-              // Unknown ticket shape — log it
-              console.warn('⚠️ Unknown ticket shape:', JSON.stringify(ticket))
+          android: {
+            priority: "high",
+            notification: {
+              channel_id: "default",
+              sound: "default",
+              notification_priority: "PRIORITY_HIGH",
+              visibility: "PUBLIC",
+              default_sound: true,
+              default_vibrate_timings: true
             }
-          })
-        } else {
-          console.error('❌ Unexpected Expo response shape — no data array:', JSON.stringify(result))
+          },
+          apns: {
+            headers: {
+              "apns-priority": "10"
+            },
+            payload: {
+              aps: {
+                sound: "default",
+                "content-available": 1
+              }
+            }
+          }
         }
+      };
+
+      console.log(`📤 Sending High-Intent Topic Message to RHM_ALL_USERS...`);
+
+      const fcmResponse = await fetch(`https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${accessToken}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(fcmPayload)
+      });
+
+      if (!fcmResponse.ok) {
+        const errBody = await fcmResponse.text();
+        console.error(`❌ FCM API error ${fcmResponse.status}:`, errBody);
+        throw new Error(`FCM API error ${fcmResponse.status}: ${errBody}`);
       }
 
-      console.log(`✅ Broadcast complete: ${successCount} succeeded, ${errorCount} failed, ${invalidTokens.length} invalid tokens`)
+      console.log('✅ FCM topic broadcast successful!');
 
-      // 4. Auto-purge DeviceNotRegistered tokens
-      if (invalidTokens.length > 0) {
-        console.log(`🧹 Auto-purging ${invalidTokens.length} invalid tokens`)
-        await supabaseClient
-          .from('push_tokens')
-          .delete()
-          .in('expo_push_token', invalidTokens)
-      }
-
-      // 5. Persist to in-app notification history
+      // Persist to in-app notification history
       await supabaseClient.from('in_app_notifications').insert([{
         title,
         body,
@@ -291,12 +280,8 @@ serve(async (req) => {
       }])
 
       return new Response(JSON.stringify({
-        success: successCount > 0 || (errorCount === 0 && expoPushTokens.length > 0),
-        sent: successCount,           // ✅ REAL count: tickets with status=ok
-        total_tokens: expoPushTokens.length,
-        failed: errorCount,
-        purged: invalidTokens.length,
-        expo_errors: expoErrors.slice(0, 10), // Return first 10 errors for debugging
+        success: true,
+        sent: 1 // Representing the single topic request
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 200,
