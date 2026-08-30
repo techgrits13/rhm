@@ -167,12 +167,14 @@ export default function App() {
     })();
   }, []);
 
-  // Track active devices and daily app opens for the admin dashboard.
+  // Deprecated: Track active devices and daily app opens (caused high egress, handled by OneSignal now)
+  /*
   useEffect(() => {
     trackAppActivity(true);
     const heartbeat = setInterval(() => trackAppActivity(false), 60000);
     return () => clearInterval(heartbeat);
   }, []);
+  */
 
   // Handle app state changes for ads
   useEffect(() => {
@@ -185,7 +187,6 @@ export default function App() {
       }
 
       if (state === 'active') {
-        trackAppActivity(true);
         maybeShowNotificationPermissionReminder();
         const backgroundedAt = backgroundedAtRef.current;
         const wasAwayLongEnough = !!backgroundedAt && Date.now() - backgroundedAt >= APP_OPEN_MIN_INTERVAL_MS;

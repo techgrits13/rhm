@@ -46,11 +46,9 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         }
     }, []); // FIXED: Removed isRefreshing from dependencies to prevent infinite loop
 
-    // Auto-refresh notifications every 30 seconds
+    // Fetch notifications on mount
     useEffect(() => {
         refreshNotifications();
-        const interval = setInterval(refreshNotifications, 30000);
-        return () => clearInterval(interval);
     }, [refreshNotifications]);
 
     // Show notification card with proper cleanup

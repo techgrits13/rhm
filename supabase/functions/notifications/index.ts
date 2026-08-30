@@ -167,17 +167,10 @@ serve(async (req: any) => {
     }
 
     // ── GET /in-app ───────────────────────────────────────────────────────────
-    if (req.method === 'GET') {
-      const { data, error } = await supabaseClient
-        .from('in_app_notifications')
-        .select('*')
-        .order('created_at', { ascending: false })
-
-      if (error) throw error
-
-      return new Response(JSON.stringify({ notifications: data || [] }), {
+    if (req.method === 'GET' && !url.pathname.includes('debug-tokens')) {
+      return new Response(JSON.stringify({ notifications: [], error: 'Please update the app. Polling endpoint deprecated.' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200,
+        status: 426,
       })
     }
 

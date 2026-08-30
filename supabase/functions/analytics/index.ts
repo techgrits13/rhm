@@ -43,52 +43,9 @@ serve(async (req) => {
 
     // 1. POST /session -> Track app activity
     if (req.method === 'POST') {
-      const { deviceId, platform, appOpened } = await req.json()
-
-      if (!deviceId) {
-        return new Response(JSON.stringify({ error: 'deviceId is required' }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 400,
-        })
-      }
-
-      const now = new Date().toISOString()
-      const today = getNairobiDate()
-      
-      const deviceUpdate: any = {
-        device_id: deviceId,
-        platform: platform || 'unknown',
-        last_seen_at: now,
-      }
-
-      if (appOpened) {
-        deviceUpdate.last_opened_at = now
-      }
-
-      const { error: deviceError } = await supabaseClient
-        .from('app_devices')
-        .upsert(deviceUpdate, { onConflict: 'device_id' })
-
-      if (deviceError) throw deviceError
-
-      if (appOpened) {
-        const { error: activityError } = await supabaseClient
-          .from('app_daily_device_activity')
-          .upsert(
-            {
-              activity_date: today,
-              device_id: deviceId,
-              opened_at: now,
-            },
-            { onConflict: 'activity_date,device_id' }
-          )
-
-        if (activityError) throw activityError
-      }
-
-      return new Response(JSON.stringify({ success: true }), {
+      return new Response(JSON.stringify({ success: true, error: 'Please update the app. This endpoint is deprecated.' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200,
+        status: 426,
       })
     }
 
