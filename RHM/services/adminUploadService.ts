@@ -44,6 +44,19 @@ export async function uploadBreakingNews(data: BreakingNewsUpload): Promise<{ su
         if (response.status !== 201 && response.status !== 200) {
             throw new Error(`Edge Function error: ${response.status}`);
         }
+        
+        // Auto-broadcast Push Notification
+        try {
+            const previewText = data.content.length > 80 ? data.content.substring(0, 80) + '...' : data.content;
+            await broadcastNotification(
+                '📰 Breaking News',
+                previewText,
+                { screen: 'BreakingNews' }
+            );
+        } catch (e) {
+            console.warn('Broadcast failed after upload:', e);
+            // Non-fatal, so we proceed
+        }
 
         return { success: true };
     } catch (error: any) {
@@ -82,6 +95,19 @@ export async function uploadMusicTrack(data: MusicUpload): Promise<{ success: bo
 
         if (response.status !== 201 && response.status !== 200) {
             throw new Error(`Edge Function error: ${response.status}`);
+        }
+        
+        // Auto-broadcast Push Notification
+        try {
+            const previewText = `${data.title} by ${data.artist} is now available!`;
+            await broadcastNotification(
+                '🎶 New Music Added',
+                previewText,
+                { screen: 'MusicList' }
+            );
+        } catch (e) {
+            console.warn('Broadcast failed after upload:', e);
+            // Non-fatal, so we proceed
         }
 
         return { success: true };

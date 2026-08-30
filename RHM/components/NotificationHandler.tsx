@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useNotifications } from '../context/NotificationContext';
 import { setupNotificationListeners } from '../services/notificationService';
-import * as Notifications from 'expo-notifications';
+
 
 /**
  * NotificationHandler — mounted at the root of the app (inside NavigationContainer).
@@ -33,7 +33,7 @@ export default function NotificationHandler({ navigationRef }: Props) {
     useEffect(() => {
         const cleanup = setupNotificationListeners(
             // ── Case 1: Notification arrives while app is open (foreground) ──────
-            (notification: Notifications.Notification) => {
+            (notification: any) => {
                 try {
                     const content = notification.request?.content;
                     if (!content) return;
@@ -61,7 +61,7 @@ export default function NotificationHandler({ navigationRef }: Props) {
             },
 
             // ── Case 2: User taps a notification (any app state) ─────────────────
-            (response: Notifications.NotificationResponse) => {
+            (response: any) => {
                 try {
                     const data = response.notification.request.content.data as Record<string, any>;
                     const destScreen: string = data?.screen || 'Home';

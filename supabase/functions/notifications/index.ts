@@ -145,16 +145,16 @@ serve(async (req: any) => {
 
     // ── GET /debug-tokens — Admin: inspect what tokens exist ─────────────────
     if (req.method === 'GET' && url.pathname.includes('debug-tokens')) {
-      const { data: tokens, error } = await supabaseClient
+      const { data: tokens, error, count } = await supabaseClient
         .from('push_tokens')
-        .select('expo_push_token, device_type, updated_at')
+        .select('expo_push_token, device_type, updated_at', { count: 'exact' })
         .order('updated_at', { ascending: false })
         .limit(50)
 
       if (error) throw error
 
       return new Response(JSON.stringify({
-        count: tokens?.length ?? 0,
+        count: count ?? 0,
         tokens: (tokens || []).map((t: any) => ({
           token_preview: t.expo_push_token?.slice(0, 50) + '...',
           device_type: t.device_type,
@@ -222,28 +222,42 @@ serve(async (req: any) => {
       const fcmPayload = {
         message: {
           topic: "RHM_ALL_USERS",
+          // ── Top-level notification block ──────────────────────────────────────
+          // This is what the Android OS / iOS use to display the banner natively WITHOUT
+          // needing JavaScript to run. Works perfectly when app is killed or backgrounded.
           notification: {
-            title,
-            body
+            title: title || 'RHM',
+            body: body || ''
           },
-          data: { ...(data || {}), screen: data?.screen || 'Home' },
+          // ── Data block (for deep-link navigation on tap) ───────────────────────
+          data: {
+            ...(data || {}),
+            title: title || 'RHM',
+            body: body || '',
+            screen: data?.screen || 'Home'
+          },
+          // ── Android: HIGH priority + RHM channel for OS heads-up banner ──────────
           android: {
-            priority: "high",
+            priority: "HIGH",
             notification: {
               channel_id: "default",
               sound: "default",
+              default_vibrate_timings: true,
               notification_priority: "PRIORITY_HIGH",
-              visibility: "PUBLIC",
-              default_sound: true,
-              default_vibrate_timings: true
+              visibility: "PUBLIC"
             }
           },
+          // ── APNs (iOS) ────────────────────────────────────────────────────────
           apns: {
             headers: {
               "apns-priority": "10"
             },
             payload: {
               aps: {
+                alert: {
+                  title: title || 'RHM',
+                  body: body || ''
+                },
                 sound: "default",
                 "content-available": 1
               }

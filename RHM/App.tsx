@@ -18,12 +18,6 @@ import NotificationErrorBoundary from './components/NotificationErrorBoundary';
 import { maybeShowNotificationPermissionReminder, registerForPushNotifications } from './services/notificationService';
 import { trackAppActivity } from './services/analyticsService';
 import { setupRemoteConfig } from './services/remoteConfigService';
-import { getMessaging, setBackgroundMessageHandler } from '@react-native-firebase/messaging';
-
-setBackgroundMessageHandler(getMessaging(), async (remoteMessage: any) => {
-  console.log('📬 Background message handled:', remoteMessage);
-});
-
 // Import screens
 import HomeScreen from './screens/HomeScreen';
 import RadioScreen from './screens/RadioScreen';
@@ -178,55 +172,6 @@ export default function App() {
     trackAppActivity(true);
     const heartbeat = setInterval(() => trackAppActivity(false), 60000);
     return () => clearInterval(heartbeat);
-  }, []);
-
-  // ── Cold-start: app was KILLED and user tapped a notification ──────────────
-  // expo-notifications gives us the last response via getLastNotificationResponseAsync.
-  // We check this once after the nav container is ready and navigate accordingly.
-  useEffect(() => {
-    const SCREEN_MAP: Record<string, { type: 'tab' | 'root'; name: string }> = {
-      Home:         { type: 'tab',  name: 'Home' },
-      Radio:        { type: 'tab',  name: 'Radio' },
-      Bible:        { type: 'tab',  name: 'Bible' },
-      Notepad:      { type: 'tab',  name: 'Notepad' },
-      About:        { type: 'tab',  name: 'About' },
-      BreakingNews: { type: 'root', name: 'BreakingNews' },
-      MusicList:    { type: 'root', name: 'MusicList' },
-      ToDoList:     { type: 'root', name: 'ToDoList' },
-    };
-
-    const checkColdStart = async () => {
-      try {
-        // Dynamic import to avoid importing at top level (keeps unused warning away)
-        const Notifications = await import('expo-notifications');
-        const response = await Notifications.getLastNotificationResponseAsync();
-        if (!response) return;
-
-        // Wait until navigation is ready (app just finished rendering)
-        const waitForNav = (retries = 10) => {
-          const nav = navigationRef.current;
-          if (nav && nav.isReady?.()) {
-            const data = response.notification.request.content.data as Record<string, any>;
-            const destScreen: string = data?.screen || 'Home';
-            const dest = SCREEN_MAP[destScreen];
-            if (!dest) return;
-            if (dest.type === 'tab') {
-              nav.navigate('MainTabs', { screen: dest.name });
-            } else {
-              nav.navigate(dest.name);
-            }
-          } else if (retries > 0) {
-            setTimeout(() => waitForNav(retries - 1), 300);
-          }
-        };
-        // Give the app 500ms to render before trying to navigate
-        setTimeout(() => waitForNav(), 500);
-      } catch (e) {
-        console.warn('Cold-start notification check failed (non-critical):', e);
-      }
-    };
-
-    checkColdStart();
   }, []);
 
   // Handle app state changes for ads

@@ -1,83 +1,38 @@
-import * as Notifications from 'expo-notifications';
-import * as Device from 'expo-device';
+import { LogLevel, OneSignal } from 'react-native-onesignal';
 import { Alert, Linking, Platform } from 'react-native';
 import api, { supabaseApi } from './api';
-import { API_BASE_URL } from '../config';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
-import { 
-  getMessaging, requestPermission, subscribeToTopic, 
-  unsubscribeFromTopic, getToken, hasPermission, 
-  onMessage, onNotificationOpenedApp, getInitialNotification 
-} from '@react-native-firebase/messaging';
+import * as Device from 'expo-device';
 
-// ─── CRITICAL: Configure how notifications render when app is foregrounded ───
-Notifications.setNotificationHandler({
-    handleNotification: async () => ({
-        shouldShowBanner: true,
-        shouldShowList: true,
-        shouldPlaySound: true,
-        shouldSetBadge: false,
-    }),
-});
+// TODO: Replace this with your actual OneSignal App ID
+export const ONESIGNAL_APP_ID = 'ee2fc9eb-ac14-4c6c-ba5f-df4cc1c525e4';
 
-// ─── Hardcoded EAS project ID — NEVER changes. Prevents falling back to Expo Go. ───
-const EAS_PROJECT_ID = '099536d0-ecd3-43dd-bb67-61be5f1976c1';
 const PUSH_TOKEN_KEY = '@rhm_push_token';
 const NOTIFICATION_DENIED_KEY = '@rhm_notifications_denied';
 const NOTIFICATION_REMINDER_STATE_KEY = '@rhm_notification_reminder_state';
 const MAX_DENIED_REMINDERS_PER_DAY = 4;
 const MIN_REMINDER_INTERVAL_MS = 3 * 60 * 60 * 1000;
 
-async function setupAndroidChannel(): Promise<void> {
-    if (Platform.OS !== 'android') return;
-    await Notifications.setNotificationChannelAsync('default', {
-        name: 'RHM Notifications',
-        description: 'General announcements and church alerts from RHM',
-        importance: Notifications.AndroidImportance.MAX,
-        vibrationPattern: [0, 250, 250, 250],
-        lightColor: '#6200ee',
-        sound: 'default',
-        enableLights: true,
-        enableVibrate: true,
-        showBadge: true,
-    });
-}
-
 export async function registerForPushNotifications(): Promise<string | null> {
     try {
-        await setupAndroidChannel();
-
         if (!Device.isDevice) {
-            console.log('Push notifications only work on physical devices');
+            console.log('Push notifications require a physical device');
             return null;
         }
 
-        const msg = getMessaging();
-        const authStatus = await requestPermission(msg);
-        // AuthorizationStatus is an enum, usually 1 for Authorized, 2 for Provisional. We'll just check if it's > 0
-        const enabled = authStatus === 1 || authStatus === 2;
+        OneSignal.Debug.setLogLevel(LogLevel.Verbose);
+        OneSignal.initialize(ONESIGNAL_APP_ID);
 
-        if (!enabled) {
-            await AsyncStorage.setItem(NOTIFICATION_DENIED_KEY, 'true');
-            console.warn('Firebase Notification permissions denied');
-            return null;
+        OneSignal.Notifications.requestPermission(true);
+
+        const token = OneSignal.User.pushSubscription.getPushSubscriptionId();
+        
+        if (token) {
+            await AsyncStorage.setItem(PUSH_TOKEN_KEY, token);
         }
-
-        await AsyncStorage.removeItem(NOTIFICATION_DENIED_KEY);
-
-        try {
-            await subscribeToTopic(msg, 'RHM_ALL_USERS');
-            console.log('✅ Subscribed to FCM topic: RHM_ALL_USERS');
-        } catch (e) {
-            console.error('Failed to subscribe to FCM topic:', e);
-        }
-
-        const token = await getToken(msg);
-        console.log('✅ FCM Push token:', token);
-        await AsyncStorage.setItem(PUSH_TOKEN_KEY, token);
-
-        return token;
+        
+        return token || null;
     } catch (error) {
         console.error('Error registering for push notifications:', error);
         return null;
@@ -109,14 +64,8 @@ async function readReminderState(): Promise<ReminderState> {
 
 export async function maybeShowNotificationPermissionReminder(): Promise<void> {
     try {
-        const denied = await AsyncStorage.getItem(NOTIFICATION_DENIED_KEY);
-        if (denied !== 'true') return;
-
-        const authStatus = await hasPermission(getMessaging());
-        if (authStatus === 1 || authStatus === 2) {
-            await AsyncStorage.removeItem(NOTIFICATION_DENIED_KEY);
-            return;
-        }
+        const hasPermission = OneSignal.Notifications.hasPermission();
+        if (hasPermission) return;
 
         const now = Date.now();
         const state = await readReminderState();
@@ -143,78 +92,57 @@ export async function maybeShowNotificationPermissionReminder(): Promise<void> {
 
 export async function unregisterPushToken(): Promise<void> {
     try {
-        await unsubscribeFromTopic(getMessaging(), 'RHM_ALL_USERS');
-        console.log('Unsubscribed from FCM topic: RHM_ALL_USERS');
+        OneSignal.User.pushSubscription.optOut();
     } catch (error) {
         console.error('Error unregistering push token:', error);
     }
 }
 
+// Adapting the original listeners
 export function setupNotificationListeners(
     onNotificationReceived: (notification: any) => void,
     onNotificationTapped: (response: any) => void
 ) {
-    const msg = getMessaging();
-
-    const unsubscribeOnMessage = onMessage(msg, async (remoteMessage: any) => {
-        console.log('📬 Notification received (foreground):', remoteMessage);
+    const foregroundListener = (event: any) => {
+        console.log('📬 Notification received (foreground):', event);
+        const notification = event.notification;
         
-        // ── Adapt FCM remote message shape → Expo Notification shape ──────────
-        // NotificationHandler expects { request: { content: { title, body, data } } }
-        // FCM message has { notification: { title, body }, data: {} }
         const adaptedNotification = {
             request: {
                 content: {
-                    title: remoteMessage.notification?.title || '',
-                    body: remoteMessage.notification?.body || '',
-                    data: remoteMessage.data || {},
+                    title: notification.title || '',
+                    body: notification.body || '',
+                    data: notification.additionalData || {},
                 }
             }
         };
-        onNotificationReceived(adaptedNotification as any);
         
-        // ── Also show a system-level banner while app is in foreground ─────────
-        if (remoteMessage.notification) {
-            try {
-                await Notifications.scheduleNotificationAsync({
+        onNotificationReceived(adaptedNotification);
+    };
+    
+    OneSignal.Notifications.addEventListener('foregroundWillDisplay', foregroundListener);
+
+    const clickListener = (event: any) => {
+        console.log('👆 Notification tapped:', event);
+        const notification = event.notification;
+        
+        const adaptedResponse = {
+            notification: {
+                request: {
                     content: {
-                        title: remoteMessage.notification.title || '',
-                        body: remoteMessage.notification.body || '',
-                        data: remoteMessage.data || {},
-                        sound: 'default',
-                    },
-                    trigger: Platform.OS === 'android'
-                        ? { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds: 1, channelId: 'default' } as any
-                        : null,
-                });
-            } catch (err) {
-                console.warn('⚠️ scheduleNotificationAsync failed:', err);
+                        data: notification.additionalData || {}
+                    }
+                }
             }
-        }
-    });
+        };
+        onNotificationTapped(adaptedResponse);
+    };
 
-    const unsubscribeOnNotificationOpenedApp = onNotificationOpenedApp(msg, (remoteMessage: any) => {
-        console.log('👆 Notification tapped (background):', remoteMessage);
-        onNotificationTapped(remoteMessage);
-    });
-
-    getInitialNotification(msg).then((remoteMessage: any) => {
-        if (remoteMessage) {
-            console.log('👆 Notification tapped (quit):', remoteMessage);
-            onNotificationTapped(remoteMessage);
-        }
-    });
-
-    const responseListener = Notifications.addNotificationResponseReceivedListener(
-        (response) => {
-            onNotificationTapped({ data: response.notification.request.content.data });
-        }
-    );
+    OneSignal.Notifications.addEventListener('click', clickListener);
 
     return () => {
-        unsubscribeOnMessage();
-        unsubscribeOnNotificationOpenedApp();
-        responseListener.remove();
+        OneSignal.Notifications.removeEventListener('foregroundWillDisplay', foregroundListener);
+        OneSignal.Notifications.removeEventListener('click', clickListener);
     };
 }
 

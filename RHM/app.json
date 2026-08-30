@@ -46,24 +46,15 @@
         "WAKE_LOCK"
       ]
     },
-    "notification": {
-      "icon": "./assets/adaptive-icon.png",
-      "color": "#6200ee",
-      "androidMode": "default",
-      "androidCollapsedTitle": "RHM"
-    },
+
     "web": {
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "./plugins/withAndroidManifestReplace",
       [
-        "expo-notifications",
+        "onesignal-expo-plugin",
         {
-          "icon": "./assets/adaptive-icon.png",
-          "color": "#6200ee",
-          "defaultChannel": "default",
-          "sounds": []
+          "mode": "production"
         }
       ],
       [
