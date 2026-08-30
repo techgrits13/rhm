@@ -75,7 +75,7 @@
               "https://artifacts.applovin.com/android"
             ],
             "extraDependencies": [
-              "com.applovin.mediation:google-adapter:23.6.0.0"
+              "com.google.ads.mediation:applovin:13.+"
             ]
           }
         }
